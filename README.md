@@ -121,6 +121,20 @@ All 10 tests across all 4 suites are automated with Vitest.
 
 ---
 
+## 🔒 Security & System Permissions
+
+Hermes Studio is configured with `"isDesktopOnly": true` and adheres to Obsidian's Developer Policies. Because it functions as an interactive pair-programmer and agent workbench, it utilizes standard desktop APIs for the following specific purposes:
+
+- **Child Process Execution (`child_process`)**:
+  - Used exclusively to run the local `hermes` CLI binary (`hermes acp`) and communicate with the local agent daemon over standard input/output (`stdio`).
+  - No unexpected external binaries or remote shell scripts are executed.
+- **Direct Filesystem Access (`fs`)**:
+  - Used to read and apply user-approved code/markdown changes when accepting diff proposals in the unified diff viewer, and to persist local workspace session caches in the vault.
+- **Clipboard Access (`navigator.clipboard`)**:
+  - Used exclusively when the user clicks the "Copy" action button on AI chat responses, code blocks, or prompt templates.
+
+---
+
 ## 📜 License
 
 MIT License. Designed and reverse-engineered with REA.
