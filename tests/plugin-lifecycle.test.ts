@@ -16,6 +16,8 @@ describe("HermesStudioPlugin lifecycle & views", () => {
     const adapter = new (FileSystemAdapter as any)(tmpVault);
 
     const openedFiles: any[] = [];
+    const openLeaves: any[] = [];
+    const setActiveLeafCalls: any[] = [];
     const mockApp: any = {
       vault: {
         adapter,
@@ -50,16 +52,36 @@ describe("HermesStudioPlugin lifecycle & views", () => {
       workspace: {
         on: () => ({}),
         getLeavesOfType: () => [],
+        iterateAllLeaves: (cb: (l: any) => void) => {
+          for (const l of openLeaves) cb(l);
+        },
+        setActiveLeaf: (l: any) => {
+          setActiveLeafCalls.push(l);
+        },
+        revealLeaf: async () => {},
         getRightLeaf: () => ({
           setViewState: async () => {},
         }),
-        getLeaf: () => ({
-          setViewState: async () => {},
-          openFile: async (file: any) => {
-            openedFiles.push(file);
-          },
-        }),
-        revealLeaf: async () => {},
+        getLeaf: () => {
+          const l: any = {
+            view: { file: null },
+            currentMode: "source",
+            getViewState: () => ({
+              type: "markdown",
+              state: { mode: l.currentMode, file: l.view.file?.path },
+            }),
+            setViewState: async (vs: any) => {
+              if (vs?.state?.mode) l.currentMode = vs.state.mode;
+            },
+            openFile: async (file: any, opts?: any) => {
+              l.view.file = file;
+              if (opts?.state?.mode) l.currentMode = opts.state.mode;
+              openedFiles.push(file);
+            },
+          };
+          openLeaves.push(l);
+          return l;
+        },
         getActiveViewOfType: () => null,
       },
       setting: {
@@ -71,7 +93,7 @@ describe("HermesStudioPlugin lifecycle & views", () => {
     const plugin = new HermesStudioPlugin(mockApp, {
       id: "hermes-studio",
       name: "Hermes Studio",
-      version: "0.6.6",
+      version: "0.6.7",
       dir: tmpVault,
     } as any);
 
@@ -125,10 +147,22 @@ describe("HermesStudioPlugin lifecycle & views", () => {
     const opened1 = await plugin.openVaultFile("Meus Documentos.md");
     expect(opened1).toBe(true);
     expect(openedFiles.some((f) => f.name === "Meus Documentos.md")).toBe(true);
+    expect(openLeaves.length).toBe(1);
+    expect(openLeaves[0].currentMode).toBe("preview");
 
+    // Second click on the same document: reuses the existing tab and does not create a new one
+    const openedAgain = await plugin.openVaultFile("Meus Documentos.md");
+    expect(openedAgain).toBe(true);
+    expect(openLeaves.length).toBe(1);
+    expect(setActiveLeafCalls.length).toBe(1);
+    expect(setActiveLeafCalls[0]).toBe(openLeaves[0]);
+    expect(openLeaves[0].currentMode).toBe("preview");
+
+    // Opening another document opens in a separate leaf
     const opened2 = await plugin.openVaultFile("identidade-1.jpg");
     expect(opened2).toBe(true);
     expect(openedFiles.some((f) => f.name === "identidade-1.jpg")).toBe(true);
+    expect(openLeaves.length).toBe(2);
 
     await sideView.onClose();
     sideView.containerEl.remove();

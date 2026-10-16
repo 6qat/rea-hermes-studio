@@ -201,4 +201,13 @@ export class TFolder {
   children: any[] = [];
 }
 
+export class WorkspaceLeaf {
+  view: any;
+  getViewState() {
+    return { type: "markdown", state: { mode: "source" } };
+  }
+  async setViewState(_state: any) {}
+  async openFile(_file: any, _opts?: any) {}
+}
+
 export function addIcon(_id: string, _svg: string): void {}

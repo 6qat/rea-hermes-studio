@@ -552,12 +552,65 @@ export default class HermesStudioPlugin extends Plugin {
         return true;
       }
 
-      // If it's a file, open in a leaf
-      const leaf =
-        this.app?.workspace?.getLeaf?.("tab") ??
-        this.app?.workspace?.getLeaf?.(false);
-      if (leaf && typeof (leaf as any).openFile === "function") {
-        await (leaf as any).openFile(abstractFile);
+      // Check if there is already an opened tab with this document
+      let existingLeaf: WorkspaceLeaf | undefined;
+      if (typeof this.app?.workspace?.iterateAllLeaves === "function") {
+        this.app.workspace.iterateAllLeaves((l: WorkspaceLeaf) => {
+          if (!existingLeaf && (l.view as any)?.file?.path === abstractFile.path) {
+            existingLeaf = l;
+          }
+        });
+      } else if (typeof this.app?.workspace?.getLeavesOfType === "function") {
+        const mdLeaves = this.app.workspace.getLeavesOfType("markdown") ?? [];
+        for (const l of mdLeaves) {
+          if ((l.view as any)?.file?.path === abstractFile.path) {
+            existingLeaf = l;
+            break;
+          }
+        }
+      }
+
+      let leaf: WorkspaceLeaf | undefined = existingLeaf;
+      if (leaf) {
+        // Tab already opened: switch to it and reveal
+        this.app?.workspace?.revealLeaf?.(leaf);
+        this.app?.workspace?.setActiveLeaf?.(leaf, { focus: true });
+      } else {
+        // Only open a new tab when it's not already opened
+        leaf =
+          this.app?.workspace?.getLeaf?.("tab") ??
+          this.app?.workspace?.getLeaf?.(false);
+        if (leaf && typeof (leaf as any).openFile === "function") {
+          await (leaf as any).openFile(abstractFile, {
+            active: true,
+            state: { mode: "preview" },
+          });
+        }
+      }
+
+      // Ensure Reading View mode (preview) for markdown documents
+      if (leaf) {
+        try {
+          const vs = leaf.getViewState?.();
+          if (
+            vs &&
+            (vs.type === "markdown" ||
+              (!vs.type && (abstractFile.path?.endsWith?.(".md") ?? false)))
+          ) {
+            if (vs.state?.mode !== "preview") {
+              await leaf.setViewState?.({
+                ...vs,
+                type: "markdown",
+                state: {
+                  ...(vs.state ?? {}),
+                  file: abstractFile.path,
+                  mode: "preview",
+                },
+              });
+            }
+          }
+        } catch {}
+
         if (selection) {
           const view = (leaf as any).view;
           const editor = view?.editor;
@@ -574,10 +627,12 @@ export default class HermesStudioPlugin extends Plugin {
       }
     }
 
-    // 9. Fallback: try openLinkText
+    // 9. Fallback: try openLinkText (reusing active leaf and setting preview mode)
     if (this.app?.workspace?.openLinkText) {
       try {
-        await this.app.workspace.openLinkText(cleanTarget || target, "", "tab");
+        await this.app.workspace.openLinkText(cleanTarget || target, "", false, {
+          state: { mode: "preview" },
+        });
         return true;
       } catch {}
     }
