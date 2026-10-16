@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
-# Release helper — tags the current manifest version as v<version> and pushes it.
-# Pushing the v* tag triggers .github/workflows/release.yml (vitest + build + release).
-# Never push a second (unprefixed) tag: duplicate tags fire duplicate runs and
-# create duplicate GitHub releases.
+# Release helper — tags the current manifest version exactly (e.g. "0.6.11") and pushes it.
+# Plain numeric tag, NO "v" prefix: Obsidian's plugin release check requires a GitHub
+# release whose tag equals the manifest version exactly, so the tag is the version verbatim.
+# Pushing the tag triggers .github/workflows/release.yml (vitest + build + release).
+# Push exactly this one tag — extra duplicate tags fire duplicate runs/releases.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -17,7 +18,7 @@ if [ -n "$(git status --porcelain)" ]; then
 fi
 
 version=$(node -p "require('./manifest.json').version")
-tag="v$version"
+tag="$version"
 
 if git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
   echo "release: tag $tag already exists" >&2

@@ -129,7 +129,7 @@ Bump `version` in `manifest.json` (and `package.json`), commit, then:
 npm run release
 ```
 
-The script tags the current version as `v<version>` and pushes it, which triggers the release workflow. Push **only** the `v*` tag — an unprefixed duplicate tag fires a second workflow run and creates a duplicate GitHub release.
+The script tags the current version **exactly as written in `manifest.json`** (e.g. `0.6.11` — no `v` prefix) and pushes it, which triggers the release workflow. The plain tag is required: Obsidian's plugin release check looks for a GitHub release whose tag equals the manifest version exactly. Push exactly this one tag — extra duplicate tags fire duplicate workflow runs and create duplicate releases.
 
 ---
 

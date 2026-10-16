@@ -3,7 +3,7 @@ name: Release Obsidian Plugin
 on:
   push:
     tags:
-      - "v*"
+      - "*"
 
 permissions:
   contents: write
@@ -12,6 +12,9 @@ permissions:
 
 jobs:
   build:
+    # Release tags must be the manifest version verbatim (Obsidian's release check);
+    # skip v-prefixed strays so they can never create duplicate releases.
+    if: ${{ !startsWith(github.ref_name, 'v') }}
     runs-on: ubuntu-latest
 
     steps:
