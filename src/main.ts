@@ -103,13 +103,11 @@ export default class HermesStudioPlugin extends Plugin {
         await this.activateSideView();
       },
       createEditorWebviewPanel: () => {
-        if (this.pendingEditorAdapter) {
-          const adapter = this.pendingEditorAdapter;
-          this.pendingEditorAdapter = undefined;
-          return adapter;
+        if (this.activeEditorView) {
+          return this.activeEditorView.toVscodeWebviewAdapter();
         }
         void this.openEditorViewLeaf();
-        return this.activeEditorView?.toVscodeWebviewAdapter();
+        return { _asyncAdopt: true };
       },
       getVaultDiagnostics: () => this.collectVaultDiagnostics(),
       openFileInObsidian: async (absPath, selection) => {

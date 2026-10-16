@@ -396,12 +396,18 @@ export function createObsidianVscodeShim(deps: ObsidianShimDependencies) {
     if (!state) return undefined;
     const uri = SimpleUri.file(state.absPath);
     const lines = state.content.split(/\r?\n/);
+    const selEndChar = state.selection
+      ? Math.max(
+          1,
+          state.selection.text.split(/\r?\n/).at(-1)?.length ?? 1,
+        )
+      : 0;
     const sel = state.selection
       ? new SimpleRange(
           Math.max(0, state.selection.startLine - 1),
           0,
           Math.max(0, state.selection.endLine - 1),
-          (lines[Math.max(0, state.selection.endLine - 1)] ?? "").length,
+          selEndChar,
         )
       : new SimpleRange(
           Math.max(0, state.cursorLine - 1),

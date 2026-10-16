@@ -10079,7 +10079,7 @@ var nP = 30,
           retainContextWhenHidden: !0,
         },
       );
-      ((this.focusPending = !0), this.adopt(e));
+      ((this.focusPending = !0), e && !e._asyncAdopt && this.adopt(e));
     }
     async moveToSide() {
       let e = this.panel;

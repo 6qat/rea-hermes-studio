@@ -128,4 +128,115 @@ describe("Hermes Core Host <-> Shadow DOM Svelte 5 Webview Integration", () => {
     hostEl.remove();
     fs.rmSync(tmpVault, { recursive: true, force: true });
   });
+
+  it("attaches a single-line active editor selection and adopts an async editor tab leaf", async () => {
+    const tmpVault = fs.mkdtempSync(path.join(os.tmpdir(), "hermes-sel-vault-"));
+    const noteAbs = path.join(tmpVault, "SingleLine.md");
+    fs.writeFileSync(noteAbs, "# Title\nSelected single line text\n", "utf8");
+
+    let editorLeafOpened = false;
+    const shim = createObsidianVscodeShim({
+      vaultBasePath: tmpVault,
+      vaultName: "SelVault",
+      getSettings: () => ({
+        path: "/nonexistent/hermes-binary-for-unit-test",
+        environment: {},
+        autoStart: false,
+        notifications: "all",
+      }),
+      createEditorWebviewPanel: () => {
+        editorLeafOpened = true;
+        return { _asyncAdopt: true };
+      },
+      getActiveEditorState: () => ({
+        absPath: noteAbs,
+        relPath: "SingleLine.md",
+        content: "Selected single line text",
+        languageId: "markdown",
+        cursorLine: 2,
+        selection: {
+          startLine: 2,
+          endLine: 2,
+          text: "Selected single line text",
+        },
+      }),
+    });
+
+    const core = activateHermesCore({
+      vscodeShim: shim,
+      extensionPath: tmpVault,
+    });
+
+    const provider = shim._internal.getWebviewViewProvider();
+    const hostToWebviewMessages: any[] = [];
+    let webviewReceiveCallback: ((msg: any) => void) | undefined;
+
+    provider.resolveWebviewView({
+      visible: true,
+      badge: undefined,
+      webview: {
+        options: {},
+        html: "",
+        cspSource: "self",
+        asWebviewUri: (u: any) => u,
+        onDidReceiveMessage: (cb: (msg: any) => void) => {
+          webviewReceiveCallback = cb;
+          return { dispose() {} };
+        },
+        postMessage: async (msg: any) => {
+          hostToWebviewMessages.push(msg);
+          return true;
+        },
+      },
+      onDidChangeVisibility: () => ({ dispose() {} }),
+      onDidDispose: () => ({ dispose() {} }),
+    });
+
+    webviewReceiveCallback?.({ type: "ready" });
+    await new Promise((r) => setTimeout(r, 30));
+
+    // 1. Verify editorContext chip includes line 2 selection
+    const editorCtx = hostToWebviewMessages
+      .filter((m) => m.type === "editorContext")
+      .at(-1);
+    expect(editorCtx?.file?.label).toBe("SingleLine.md 2");
+
+    // 2. Verify addContext("selection") adds the single-line selection chip
+    webviewReceiveCallback?.({ type: "addContext", kind: "selection" });
+    const ctxMsg = hostToWebviewMessages
+      .filter((m) => m.type === "context")
+      .at(-1);
+    expect(
+      ctxMsg?.items?.some(
+        (i: any) => i.kind === "selection" && i.label === "SingleLine.md 2",
+      ),
+    ).toBe(true);
+
+    // 3. Verify hermesStudio.openChatInEditor triggers async leaf open without blocking subsequent adopt()
+    await shim.commands.executeCommand("hermesStudio.openChatInEditor");
+    expect(editorLeafOpened).toBe(true);
+
+    let editorAdopted = false;
+    provider.adopt({
+      visible: true,
+      webview: {
+        options: {},
+        html: "",
+        cspSource: "self",
+        asWebviewUri: (u: any) => u,
+        onDidReceiveMessage: () => ({ dispose() {} }),
+        postMessage: async () => true,
+      },
+      reveal() {},
+      onDidChangeViewState: () => ({ dispose() {} }),
+      onDidDispose: () => ({ dispose() {} }),
+      dispose: () => {
+        editorAdopted = false;
+      },
+    });
+    expect(provider.panel).toBeDefined();
+
+    await core.deactivate();
+    fs.rmSync(tmpVault, { recursive: true, force: true });
+  });
 });
