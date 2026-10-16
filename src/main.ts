@@ -70,6 +70,7 @@ export default class HermesStudioPlugin extends Plugin {
 
   async onload(): Promise<void> {
     await this.loadSettings();
+    this.applyLayoutSpacing();
 
     addIcon("hermes-studio", HERMES_OBSIDIAN_ICON_SVG);
 
@@ -550,12 +551,24 @@ export default class HermesStudioPlugin extends Plugin {
     };
   }
 
+  applyLayoutSpacing(): void {
+    if (typeof document === "undefined") return;
+    const pad = Math.max(0, this.settings.statusBarPadding ?? 34);
+    document.body?.style?.setProperty?.("--hermes-status-bar-padding", `${pad}px`);
+  }
+
   async saveSettings(changedKey?: string): Promise<void> {
     await this.saveData(this.settings);
+    if (changedKey === "statusBarPadding" || !changedKey) {
+      this.applyLayoutSpacing();
+    }
     this.vscodeShim?._internal.fireConfigChanged(changedKey);
   }
 
   async onunload(): Promise<void> {
+    if (typeof document !== "undefined") {
+      document.body?.style?.removeProperty?.("--hermes-status-bar-padding");
+    }
     await this.core?.deactivate();
     this.core = undefined;
   }

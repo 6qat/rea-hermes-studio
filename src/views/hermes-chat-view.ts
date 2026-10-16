@@ -48,7 +48,7 @@ export class HermesStudioView extends ItemView {
     this.contentEl.empty?.() ?? (this.contentEl.innerHTML = "");
     this.contentEl.classList.add("hermes-studio-view-content");
     this.contentEl.style.cssText =
-      "padding:0;margin:0;height:100%;width:100%;overflow:hidden;display:flex;flex-direction:column;";
+      "margin:0;height:100%;width:100%;overflow:hidden;display:flex;flex-direction:column;box-sizing:border-box;";
 
     this.mountShadowUi();
 

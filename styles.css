@@ -1,0 +1,44 @@
+/* Obsidian Hermes Studio — Host Workspace Styles */
+
+.workspace-leaf-content[data-type="hermes-studio-side-view"] .view-content,
+.workspace-leaf-content[data-type="hermes-studio-editor-view"] .view-content,
+.workspace-leaf-content[data-type="hermes-studio-diff-view"] .view-content,
+.hermes-studio-view-content {
+  padding: 0;
+  margin: 0 !important;
+  overflow: hidden !important;
+  height: 100%;
+  width: 100%;
+  box-sizing: border-box !important;
+  background: var(--background-secondary, #0f172a);
+}
+
+/* Status-bar safe area when docked in Obsidian's right sidebar:
+   Prevents Obsidian's fixed bottom-right .status-bar from obstructing
+   the Hermes Studio chat input panel and action buttons. */
+.mod-right-split .workspace-leaf-content[data-type="hermes-studio-side-view"] .view-content,
+.mod-right-split .hermes-studio-view-content {
+  padding-bottom: var(--hermes-status-bar-padding, 34px) !important;
+  box-sizing: border-box !important;
+}
+
+.workspace-leaf-content[data-type="hermes-studio-editor-view"] .view-content,
+.workspace-leaf-content[data-type="hermes-studio-diff-view"] .view-content {
+  background: var(--background-primary, #0b0f19);
+}
+
+.side-dock-ribbon-action.hermes-has-badge {
+  position: relative;
+}
+
+.side-dock-ribbon-action.hermes-has-badge::after {
+  content: "";
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--color-yellow, #f59e0b);
+  box-shadow: 0 0 0 2px var(--background-secondary, #0f172a);
+}
