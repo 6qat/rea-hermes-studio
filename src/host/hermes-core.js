@@ -1,7 +1,4 @@
 // Auto-generated Hermes Studio host core for Obsidian (from v0.6.0)
-import { createRequire } from "node:module";
-const require = typeof __require === "function" ? __require : createRequire(import.meta.url || "file:///main.js");
-
 export function createHermesExtensionModule(__vscodeShim, __hostHooks = {}) {
 var t0 = Object.create;
 var os = Object.defineProperty;

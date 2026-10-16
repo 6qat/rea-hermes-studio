@@ -18,6 +18,7 @@ const nodeBuiltins = [
   "fs/promises",
   "http",
   "https",
+  "module",
   "net",
   "os",
   "path",
