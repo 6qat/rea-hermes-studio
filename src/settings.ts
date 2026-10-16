@@ -18,7 +18,7 @@ export const DEFAULT_HERMES_SETTINGS: HermesPluginSettings = {
   autoStart: true,
   notifications: "all",
   trace: false,
-  statusBarPadding: 34,
+  statusBarPadding: 26,
   webviewState: undefined,
   workspaceState: {},
 };
@@ -128,15 +128,15 @@ export class HermesSettingTab extends PluginSettingTab {
     new Setting(containerEl)
       .setName("Right sidebar bottom padding")
       .setDesc(
-        "Safe bottom margin (in pixels) applied when Hermes Studio is docked in the right sidebar, preventing Obsidian's status bar from covering chat controls. Set to 0 to disable. Default: 34.",
+        "Safe bottom margin (in pixels) applied when Hermes Studio is docked in the right sidebar, preventing Obsidian's status bar from covering chat controls. Set to 0 to disable. Default: 26.",
       )
       .addText((text) =>
         text
-          .setPlaceholder("34")
-          .setValue(String(this.plugin.settings.statusBarPadding ?? 34))
+          .setPlaceholder("26")
+          .setValue(String(this.plugin.settings.statusBarPadding ?? 26))
           .onChange(async (val) => {
             const num = parseInt(val.trim(), 10);
-            this.plugin.settings.statusBarPadding = isNaN(num) ? 34 : Math.max(0, num);
+            this.plugin.settings.statusBarPadding = isNaN(num) ? 26 : Math.max(0, num);
             await this.plugin.saveSettings("statusBarPadding");
           }),
       );

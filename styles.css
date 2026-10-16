@@ -18,7 +18,7 @@
    the Hermes Studio chat input panel and action buttons. */
 .mod-right-split .workspace-leaf-content[data-type="hermes-studio-side-view"] .view-content,
 .mod-right-split .hermes-studio-view-content {
-  padding-bottom: var(--hermes-status-bar-padding, 34px) !important;
+  padding-bottom: var(--hermes-status-bar-padding, 26px) !important;
   box-sizing: border-box !important;
 }
 
