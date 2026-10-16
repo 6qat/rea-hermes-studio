@@ -9,7 +9,9 @@ export interface HermesSettingsValues {
   path: string;
   environment: Record<string, string>;
   autoStart: boolean;
-  notifications: "all" | "permissions" | "off";
+  notifications: "all" | "permissions" | "off" | boolean;
+  windowsNotifications?: boolean;
+  trace?: boolean;
 }
 
 export interface ObsidianShimDependencies {
@@ -19,6 +21,9 @@ export interface ObsidianShimDependencies {
   updateSetting?: (key: keyof HermesSettingsValues, value: any) => Promise<void>;
   resolveWikiLink?: (linkpath: string) => string | undefined;
   listVaultFiles?: () => string[];
+  revealSideView?: () => Promise<void>;
+  createEditorWebviewPanel?: () => any;
+  onBadgeCountChanged?: (count: number, tooltip: string) => void;
   getVaultDiagnostics?: () => Array<{
     relPath: string;
     line: number;
@@ -444,10 +449,30 @@ export function createObsidianVscodeShim(deps: ObsidianShimDependencies) {
     },
     getConfiguration(_section?: string) {
       const s = deps.getSettings();
+      const defaults: Record<string, any> = {
+        path: "",
+        trace: false,
+        notifications: true,
+        windowsNotifications: true,
+      };
+      const normalizeValue = (key: string) => {
+        if (key === "notifications") {
+          return s.notifications !== "off" && s.notifications !== false;
+        }
+        return (s as any)[key];
+      };
       return {
         get<T>(key: string, defaultValue?: T): T {
-          const val = (s as any)[key];
+          const val = normalizeValue(key);
           return val !== undefined ? val : (defaultValue as T);
+        },
+        inspect(key: string) {
+          const val = normalizeValue(key);
+          return {
+            key: `hermesStudio.${key}`,
+            defaultValue: defaults[key],
+            globalValue: val !== undefined ? val : defaults[key],
+          };
         },
         async update(key: string, value: any) {
           await deps.updateSetting?.(key as keyof HermesSettingsValues, value);
@@ -654,7 +679,9 @@ export function createObsidianVscodeShim(deps: ObsidianShimDependencies) {
       return { dispose() {} };
     },
     createWebviewPanel(_viewType: string, _title: string, _column: any, _options: any) {
-      // Handled by HermesStudioPlugin leaf management
+      if (deps.createEditorWebviewPanel) {
+        return deps.createEditorWebviewPanel();
+      }
       return {
         webview: {
           options: {},
@@ -733,6 +760,13 @@ export function createObsidianVscodeShim(deps: ObsidianShimDependencies) {
     async executeCommand(id: string, ...args: any[]) {
       if (registeredCommands.has(id)) {
         return registeredCommands.get(id)!(...args);
+      }
+      if (
+        id === "workbench.view.extension.hermes-studio" ||
+        id === "hermesStudio.chat.focus"
+      ) {
+        await deps.revealSideView?.();
+        return;
       }
       if (id === "vscode.diff") {
         const [leftUri, rightUri, title] = args as [
