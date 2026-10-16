@@ -4,3 +4,4 @@ main.js
 dist/
 *.log
 pnpm-*.yaml
+.vscode/

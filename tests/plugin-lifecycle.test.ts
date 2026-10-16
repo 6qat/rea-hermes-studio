@@ -7,6 +7,7 @@ import { FileSystemAdapter } from "obsidian";
 import { describe, expect, it } from "vitest";
 import HermesStudioPlugin, {
   HERMES_DIFF_VIEW_TYPE,
+  HERMES_DOC_VIEW_TYPE,
   HERMES_EDITOR_VIEW_TYPE,
   HERMES_SIDE_VIEW_TYPE,
 } from "../src/main";
@@ -59,7 +60,8 @@ describe("HermesStudioPlugin lifecycle & views", () => {
       },
       workspace: {
         on: () => ({}),
-        getLeavesOfType: () => [],
+        getLeavesOfType: (t: string) =>
+          openLeaves.filter((l: any) => l.view?.getViewType?.() === t),
         iterateAllLeaves: (cb: (l: any) => void) => {
           for (const l of openLeaves) cb(l);
         },
@@ -79,6 +81,13 @@ describe("HermesStudioPlugin lifecycle & views", () => {
               state: { mode: l.currentMode, file: l.view.file?.path },
             }),
             setViewState: async (vs: any) => {
+              if (vs?.type) {
+                const factory = (plugin as any).views.get(vs.type);
+                if (factory) {
+                  l.view = factory(l);
+                  if (typeof l.view.onOpen === "function") await l.view.onOpen();
+                }
+              }
               if (vs?.state?.mode) l.currentMode = vs.state.mode;
             },
             openFile: async (file: any, opts?: any) => {
@@ -89,6 +98,12 @@ describe("HermesStudioPlugin lifecycle & views", () => {
           };
           openLeaves.push(l);
           return l;
+        },
+        openLinkText: async (target: string) => {
+          if (target.startsWith("/") || target.startsWith("\\")) {
+            throw new Error("Folder already exists");
+          }
+          return true;
         },
         getActiveViewOfType: () => null,
       },
@@ -101,7 +116,7 @@ describe("HermesStudioPlugin lifecycle & views", () => {
     const plugin = new HermesStudioPlugin(mockApp, {
       id: "hermes-studio",
       name: "Hermes Studio",
-      version: "0.6.8",
+      version: "0.6.9",
       dir: tmpVault,
     } as any);
 
@@ -169,6 +184,27 @@ describe("HermesStudioPlugin lifecycle & views", () => {
     expect(opened2).toBe(true);
     expect(openedFiles.some((f) => f.name === "identidade-1.jpg")).toBe(true);
     expect(openLeaves.length).toBe(2);
+
+    // 4. Verify opening external documents (e.g. skills in ~/.hermes/skills/.../SKILL.md)
+    expect((plugin as any).views.has(HERMES_DOC_VIEW_TYPE)).toBe(true);
+
+    const externalDir = fs.mkdtempSync(path.join(os.tmpdir(), "hermes-skill-test-"));
+    const skillPath = path.join(externalDir, "SKILL.md");
+    fs.writeFileSync(skillPath, "# Test Skill\nInstructions for test skill.", "utf8");
+
+    const openedSkill = await plugin.openVaultFile(skillPath);
+    expect(openedSkill).toBe(true);
+
+    const docLeaf = openLeaves.find((l: any) => l.view?.getViewType?.() === HERMES_DOC_VIEW_TYPE);
+    expect(docLeaf).toBeDefined();
+    expect(docLeaf.view.contentEl.textContent).toContain("SKILL.md");
+    expect(docLeaf.view.contentEl.textContent).toContain("Test Skill");
+
+    // Non-existent external file does not trigger openLinkText or throw "Folder already exists"
+    const openedNonExistent = await plugin.openVaultFile("/nonexistent/external/SKILL.md");
+    expect(openedNonExistent).toBe(false);
+
+    fs.rmSync(externalDir, { recursive: true, force: true });
 
     await sideView.onClose();
     sideView.containerEl.remove();

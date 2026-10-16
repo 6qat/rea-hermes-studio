@@ -127,6 +127,22 @@ export class FuzzySuggestModal<T> extends Modal {
   onChooseItem(_item: T, _evt: MouseEvent | KeyboardEvent): void {}
 }
 
+// biome-ignore lint/complexity/noStaticOnlyClass: Obsidian API exports MarkdownRenderer as a static class
+export class MarkdownRenderer {
+  static async render(
+    _app: any,
+    markdown: string,
+    el: HTMLElement,
+    _sourcePath: string,
+    _comp: any,
+  ): Promise<void> {
+    const rendered = document.createElement("div");
+    rendered.className = "markdown-preview";
+    rendered.textContent = markdown;
+    el.appendChild(rendered);
+  }
+}
+
 export class Notice {
   noticeEl: HTMLElement = document.createElement("div");
   message: string;

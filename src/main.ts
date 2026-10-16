@@ -1,8 +1,10 @@
+import fs from "node:fs";
 import path from "node:path";
 import {
   addIcon,
   FileSystemAdapter,
   MarkdownView,
+  Notice,
   Plugin,
   TFile,
   TFolder,
@@ -19,6 +21,7 @@ import {
   HermesDiffItemView,
   HermesStudioView,
 } from "./views/hermes-chat-view";
+import { HERMES_DOC_VIEW_TYPE, HermesDocItemView } from "./views/hermes-doc-view";
 import {
   HermesMultiPickModal,
   HermesQuickPickModal,
@@ -26,7 +29,13 @@ import {
   showImageFileDialog,
 } from "./views/modals";
 
-export { HERMES_DIFF_VIEW_TYPE, HERMES_EDITOR_VIEW_TYPE, HERMES_SIDE_VIEW_TYPE };
+export {
+  HERMES_DIFF_VIEW_TYPE,
+  HERMES_DOC_VIEW_TYPE,
+  HERMES_EDITOR_VIEW_TYPE,
+  HERMES_SIDE_VIEW_TYPE,
+  HermesDocItemView,
+};
 
 // Hermes Studio 100x100 scaled icon for Obsidian's addIcon API
 const HERMES_OBSIDIAN_ICON_SVG = `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path fill="currentColor" d="M4 4h3.2v6.6h7.6V4H18v16h-3.2v-6.6H7.2V20H4z"/><path fill="currentColor" d="M18 4.2c1.9-1.5 3.6-1.6 5-.9-1.1.4-2 1.1-2.6 2.1.8-.1 1.6 0 2.3.4-1.3.4-2.6 1.3-3.4 2.6H18z"/></svg>`;
@@ -183,6 +192,7 @@ export default class HermesStudioPlugin extends Plugin {
       (leaf) => new HermesStudioView(leaf, this, "editor"),
     );
     this.safeRegisterView(HERMES_DIFF_VIEW_TYPE, (leaf) => new HermesDiffItemView(leaf, this));
+    this.safeRegisterView(HERMES_DOC_VIEW_TYPE, (leaf) => new HermesDocItemView(leaf, this));
 
     // Add Ribbon Icon
     this.ribbonEl = this.addRibbonIcon("hermes-studio", "Hermes Studio", () => {
@@ -295,6 +305,30 @@ export default class HermesStudioPlugin extends Plugin {
       const view = (leaf as any).view;
       if (view instanceof HermesDiffItemView || typeof view?.setDiffPayload === "function") {
         view.setDiffPayload(payload);
+      }
+    }
+  }
+
+  public async openDocumentInObsidian(payload: {
+    title: string;
+    filePath: string;
+    content: string;
+    selection?: { startLine: number; endLine: number };
+  }): Promise<void> {
+    const { workspace } = this.app;
+    let leaf = workspace.getLeavesOfType(HERMES_DOC_VIEW_TYPE)[0];
+    if (!leaf) {
+      leaf = workspace.getLeaf("tab");
+      await leaf?.setViewState({
+        type: HERMES_DOC_VIEW_TYPE,
+        active: true,
+      });
+    }
+    if (leaf) {
+      await workspace.revealLeaf(leaf);
+      const view = (leaf as any).view;
+      if (view instanceof HermesDocItemView || typeof view?.setDocPayload === "function") {
+        view.setDocPayload(payload);
       }
     }
   }
@@ -455,11 +489,49 @@ export default class HermesStudioPlugin extends Plugin {
     // 3. Check absolute path on disk
     if (path.isAbsolute(target)) {
       const rel = path.relative(base, target).replace(/\\/g, "/");
-      if (!rel.startsWith("..")) {
+      if (!rel.startsWith("..") && !path.isAbsolute(rel)) {
         abstractFile = this.app?.vault?.getAbstractFileByPath?.(rel);
         if (!abstractFile && cleanTarget) {
           const cleanRel = path.relative(base, cleanTarget).replace(/\\/g, "/");
           abstractFile = this.app?.vault?.getAbstractFileByPath?.(cleanRel);
+        }
+      } else {
+        // Target is an absolute path outside the vault (e.g. ~/.hermes/skills/.../SKILL.md)
+        try {
+          const targetExists = fs.existsSync(target);
+          const cleanExists = cleanTarget ? fs.existsSync(cleanTarget) : false;
+          if (targetExists || cleanExists) {
+            const resolvedPath = targetExists ? target : cleanTarget;
+            const stat = fs.statSync(resolvedPath);
+            if (stat.isDirectory()) {
+              const appAny = this.app as any;
+              if (typeof appAny.showInFolder === "function") {
+                appAny.showInFolder(resolvedPath);
+              } else if (typeof appAny.openWithDefaultApp === "function") {
+                appAny.openWithDefaultApp(resolvedPath);
+              }
+              new Notice(`Opened folder: ${path.basename(resolvedPath)}`);
+              return true;
+            }
+            if (stat.isFile()) {
+              const content = fs.readFileSync(resolvedPath, "utf8");
+              const title = path.basename(resolvedPath);
+              await this.openDocumentInObsidian({
+                title,
+                filePath: resolvedPath,
+                content,
+                selection,
+              });
+              return true;
+            }
+          } else {
+            new Notice(`File not found: ${path.basename(target)}`);
+            return false;
+          }
+        } catch (err) {
+          console.error("[Hermes Studio] Failed to open external file:", err);
+          new Notice(`Failed to open external file: ${path.basename(target)}`);
+          return false;
         }
       }
     }
@@ -591,8 +663,13 @@ export default class HermesStudioPlugin extends Plugin {
       }
     }
 
-    // 9. Fallback: try openLinkText (reusing active leaf and setting preview mode)
-    if (this.app?.workspace?.openLinkText) {
+    // 9. Fallback: try openLinkText for vault-relative links (never for absolute paths or paths with leading slash)
+    if (
+      !path.isAbsolute(target) &&
+      !target.startsWith("/") &&
+      !target.startsWith("\\") &&
+      this.app?.workspace?.openLinkText
+    ) {
       try {
         await this.app.workspace.openLinkText(cleanTarget || target, "", false, {
           state: { mode: "preview" },
