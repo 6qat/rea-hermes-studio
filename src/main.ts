@@ -553,7 +553,7 @@ export default class HermesStudioPlugin extends Plugin {
 
   applyLayoutSpacing(): void {
     if (typeof document === "undefined") return;
-    const pad = Math.max(0, this.settings.statusBarPadding ?? 20);
+    const pad = Math.max(0, this.settings.statusBarPadding ?? 14);
     document.body?.style?.setProperty?.("--hermes-status-bar-padding", `${pad}px`);
   }
 
