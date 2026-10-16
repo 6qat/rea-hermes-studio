@@ -1,8 +1,8 @@
 {
   "name": "rea-hermes-studio",
-  "version": "0.6.2",
+  "version": "0.6.3",
   "private": true,
-  "description": "Hermes Studio plugin for Obsidian — full feature and visual parity with VSCode Hermes Studio",
+  "description": "Hermes Studio plugin — full feature and visual parity with VSCode Hermes Studio",
   "author": "Guilherme Ceschiatti (6qat)",
   "scripts": {
     "build": "node esbuild.config.mjs production",

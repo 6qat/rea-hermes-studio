@@ -1,9 +1,9 @@
 {
   "id": "hermes-studio",
   "name": "Hermes Studio",
-  "version": "0.6.2",
+  "version": "0.6.3",
   "minAppVersion": "1.5.0",
-  "description": "Chat with Hermes Agent in Obsidian — with sessions, model & mode pickers, inline diffs, skills hub, memory review, and live subagent panels.",
+  "description": "Chat with Hermes Agent — with sessions, model & mode pickers, inline diffs, skills hub, memory review, and live subagent panels.",
   "author": "Guilherme Ceschiatti (6qat)",
   "authorUrl": "https://github.com/6qat",
   "isDesktopOnly": true

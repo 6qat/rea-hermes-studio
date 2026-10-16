@@ -47,7 +47,7 @@ describe("HermesStudioPlugin lifecycle & views", () => {
     const plugin = new HermesStudioPlugin(mockApp, {
       id: "hermes-studio",
       name: "Hermes Studio",
-      version: "0.6.2",
+      version: "0.6.3",
       dir: tmpVault,
     } as any);
 
