@@ -6,6 +6,14 @@ A reverse-engineered, standalone port of the VSCode [Hermes Studio](https://mark
 
 ---
 
+## 📸 Screenshots
+
+| AI Chat & Context Workbench | Learning & Skills Hub |
+| :---: | :---: |
+| <img src="./assets/screenshots/hermes-chat.png" alt="Hermes Studio Chat View" width="400" /> | <img src="./assets/screenshots/hermes-learning.png" alt="Hermes Studio Learning Hub" width="400" /> |
+
+---
+
 ## ✨ Features
 
 - **Obsidian Theme Harmony:** Seamlessly adapts to Obsidian's active theme (dark/light, accent colors, typography, background variables) via dynamic CSS variable injection into an isolated Shadow DOM.
