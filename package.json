@@ -7,6 +7,7 @@
   "scripts": {
     "build": "node esbuild.config.mjs production",
     "dev": "node esbuild.config.mjs",
+    "release": "bash scripts/release.sh",
     "test": "vitest run",
     "lint": "biome lint .",
     "format": "biome format --write .",

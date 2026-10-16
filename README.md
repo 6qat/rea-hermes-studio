@@ -121,6 +121,18 @@ All 11 tests across all test suites are automated with Vitest.
 
 ---
 
+## 🚀 Releasing
+
+Bump `version` in `manifest.json` (and `package.json`), commit, then:
+
+```bash
+npm run release
+```
+
+The script tags the current version as `v<version>` and pushes it, which triggers the release workflow. Push **only** the `v*` tag — an unprefixed duplicate tag fires a second workflow run and creates a duplicate GitHub release.
+
+---
+
 ## 🔒 Security & System Permissions
 
 Hermes Studio is configured with `"isDesktopOnly": true` and adheres strictly to Obsidian's Developer Policies:
