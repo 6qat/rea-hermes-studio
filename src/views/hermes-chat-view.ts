@@ -1,14 +1,8 @@
-import { ItemView, WorkspaceLeaf } from "obsidian";
-import { SimpleEventEmitter, SimpleUri } from "../host/obsidian-shim";
-import {
-  HermesWebviewMounted,
-  mountHermesWebview,
-} from "../webview/webview-mount";
-import {
-  DiffViewPayload,
-  renderDiffIntoContainer,
-} from "./hermes-diff-view";
+import { ItemView, type WorkspaceLeaf } from "obsidian";
+import { SimpleEventEmitter, type SimpleUri } from "../host/obsidian-shim";
 import type HermesStudioPlugin from "../main";
+import { type HermesWebviewMounted, mountHermesWebview } from "../webview/webview-mount";
+import { type DiffViewPayload, renderDiffIntoContainer } from "./hermes-diff-view";
 
 export const HERMES_SIDE_VIEW_TYPE = "hermes-studio-side-view";
 export const HERMES_EDITOR_VIEW_TYPE = "hermes-studio-editor-view";
@@ -30,9 +24,7 @@ export class HermesStudioView extends ItemView {
   }
 
   getViewType(): string {
-    return this.place === "side"
-      ? HERMES_SIDE_VIEW_TYPE
-      : HERMES_EDITOR_VIEW_TYPE;
+    return this.place === "side" ? HERMES_SIDE_VIEW_TYPE : HERMES_EDITOR_VIEW_TYPE;
   }
 
   getDisplayText(): string {
@@ -45,7 +37,11 @@ export class HermesStudioView extends ItemView {
 
   async onOpen(): Promise<void> {
     this.isViewVisible = true;
-    this.contentEl.empty?.() ?? (this.contentEl.innerHTML = "");
+    if (typeof this.contentEl.empty === "function") {
+      this.contentEl.empty();
+    } else {
+      this.contentEl.innerHTML = "";
+    }
     this.contentEl.classList.add("hermes-studio-view-content");
     this.contentEl.style.cssText =
       "margin:0;height:100%;width:100%;overflow:hidden;display:flex;flex-direction:column;box-sizing:border-box;";
@@ -67,9 +63,7 @@ export class HermesStudioView extends ItemView {
 
   private mountShadowUi(): void {
     this.mounted?.destroy();
-    const shadowRoot =
-      this.contentEl.shadowRoot ??
-      this.contentEl.attachShadow({ mode: "open" });
+    const shadowRoot = this.contentEl.shadowRoot ?? this.contentEl.attachShadow({ mode: "open" });
 
     this.mounted = mountHermesWebview({
       shadowRoot,
@@ -133,9 +127,7 @@ export class HermesStudioView extends ItemView {
     rootEl.addEventListener("drop", (e) => {
       if (e.defaultPrevented) return;
       const text =
-        e.dataTransfer?.getData("text/uri-list") ||
-        e.dataTransfer?.getData("text/plain") ||
-        "";
+        e.dataTransfer?.getData("text/uri-list") || e.dataTransfer?.getData("text/plain") || "";
       if (text.includes("obsidian://") || text.includes("[[")) {
         e.preventDefault();
         const uris = text
@@ -173,8 +165,7 @@ export class HermesStudioView extends ItemView {
         html: "",
         cspSource: "self",
         asWebviewUri: (u: SimpleUri) => u,
-        onDidReceiveMessage: (cb: (msg: any) => void) =>
-          self.receiveEmitter.event(cb),
+        onDidReceiveMessage: (cb: (msg: any) => void) => self.receiveEmitter.event(cb),
         postMessage: async (msg: any) => {
           self.mounted?.postMessageToWebview(msg);
           return true;
@@ -183,10 +174,8 @@ export class HermesStudioView extends ItemView {
       reveal: () => {
         this.app.workspace.revealLeaf?.(this.leaf);
       },
-      onDidChangeVisibility: (cb: () => void) =>
-        self.visibilityEmitter.event(cb),
-      onDidChangeViewState: (cb: () => void) =>
-        self.visibilityEmitter.event(cb),
+      onDidChangeVisibility: (cb: () => void) => self.visibilityEmitter.event(cb),
+      onDidChangeViewState: (cb: () => void) => self.visibilityEmitter.event(cb),
       onDidDispose: (cb: () => void) => self.disposeEmitter.event(cb),
       dispose: () => {
         this.leaf?.detach?.();
@@ -223,7 +212,7 @@ export class HermesDiffItemView extends ItemView {
 
   constructor(
     leaf: WorkspaceLeaf,
-    private readonly plugin: HermesStudioPlugin,
+    public readonly plugin: HermesStudioPlugin,
   ) {
     super(leaf);
   }
@@ -249,9 +238,12 @@ export class HermesDiffItemView extends ItemView {
   }
 
   async onOpen(): Promise<void> {
-    this.contentEl.empty?.() ?? (this.contentEl.innerHTML = "");
-    this.contentEl.style.cssText =
-      "padding:0;margin:0;height:100%;width:100%;overflow:hidden;";
+    if (typeof this.contentEl.empty === "function") {
+      this.contentEl.empty();
+    } else {
+      this.contentEl.innerHTML = "";
+    }
+    this.contentEl.style.cssText = "padding:0;margin:0;height:100%;width:100%;overflow:hidden;";
     renderDiffIntoContainer(this.contentEl, this.currentPayload);
   }
 }

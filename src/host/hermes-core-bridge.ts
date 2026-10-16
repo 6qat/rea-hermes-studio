@@ -1,5 +1,5 @@
-import path from "node:path";
 import os from "node:os";
+import path from "node:path";
 import { createHermesExtensionModule } from "./hermes-core.js";
 import type { createObsidianVscodeShim } from "./obsidian-shim";
 
@@ -19,9 +19,7 @@ export interface ActivatedHermesCore {
   deactivate: () => Promise<void>;
 }
 
-export function activateHermesCore(
-  options: ActivateHermesCoreOptions,
-): ActivatedHermesCore {
+export function activateHermesCore(options: ActivateHermesCoreOptions): ActivatedHermesCore {
   const { vscodeShim, extensionPath } = options;
   const workspaceStateData: Record<string, any> = {
     ...(options.initialWorkspaceState ?? {}),

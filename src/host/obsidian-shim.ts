@@ -114,10 +114,7 @@ export class SimpleRange {
     endLine?: number,
     endChar?: number,
   ) {
-    if (
-      typeof startLineOrPos === "number" &&
-      typeof startCharOrEndPos === "number"
-    ) {
+    if (typeof startLineOrPos === "number" && typeof startCharOrEndPos === "number") {
       this.start = new SimplePosition(startLineOrPos, startCharOrEndPos);
       this.end = new SimplePosition(endLine ?? startLineOrPos, endChar ?? startCharOrEndPos);
     } else {
@@ -127,10 +124,7 @@ export class SimpleRange {
   }
 
   get isEmpty(): boolean {
-    return (
-      this.start.line === this.end.line &&
-      this.start.character === this.end.character
-    );
+    return this.start.line === this.end.line && this.start.character === this.end.character;
   }
 }
 
@@ -169,14 +163,7 @@ export class SimpleUri {
   static file(fsPath: string): SimpleUri {
     const resolved = path.resolve(fsPath);
     const parsed = new URL(url.pathToFileURL(resolved).href);
-    return new SimpleUri(
-      "file",
-      "",
-      parsed.pathname,
-      "",
-      "",
-      resolved,
-    );
+    return new SimpleUri("file", "", parsed.pathname, "", "", resolved);
   }
 
   static joinPath(base: SimpleUri, ...segments: string[]): SimpleUri {
@@ -184,13 +171,7 @@ export class SimpleUri {
       return SimpleUri.file(path.join(base.fsPath, ...segments));
     }
     const joined = path.posix.join(base.path || "/", ...segments);
-    return new SimpleUri(
-      base.scheme,
-      base.authority,
-      joined,
-      base.query,
-      base.fragment,
-    );
+    return new SimpleUri(base.scheme, base.authority, joined, base.query, base.fragment);
   }
 
   static from(components: {
@@ -240,7 +221,7 @@ export function createObsidianVscodeShim(deps: ObsidianShimDependencies) {
     string,
     { provideTextDocumentContent: (uri: SimpleUri) => string | undefined }
   >();
-  let webviewViewProvider: any = undefined;
+  let webviewViewProvider: any;
   let uriHandler: { handleUri: (uri: SimpleUri) => void } | undefined;
 
   function parseUri(value: string, _strict?: boolean): SimpleUri {
@@ -404,10 +385,7 @@ export function createObsidianVscodeShim(deps: ObsidianShimDependencies) {
     const uri = SimpleUri.file(state.absPath);
     const lines = state.content.split(/\r?\n/);
     const selEndChar = state.selection
-      ? Math.max(
-          1,
-          state.selection.text.split(/\r?\n/).at(-1)?.length ?? 1,
-        )
+      ? Math.max(1, state.selection.text.split(/\r?\n/).at(-1)?.length ?? 1)
       : 0;
     const sel = state.selection
       ? new SimpleRange(
@@ -416,16 +394,8 @@ export function createObsidianVscodeShim(deps: ObsidianShimDependencies) {
           Math.max(0, state.selection.endLine - 1),
           selEndChar,
         )
-      : new SimpleRange(
-          Math.max(0, state.cursorLine - 1),
-          0,
-          Math.max(0, state.cursorLine - 1),
-          0,
-        );
-    (sel as any).active = new SimplePosition(
-      Math.max(0, state.cursorLine - 1),
-      0,
-    );
+      : new SimpleRange(Math.max(0, state.cursorLine - 1), 0, Math.max(0, state.cursorLine - 1), 0);
+    (sel as any).active = new SimplePosition(Math.max(0, state.cursorLine - 1), 0);
 
     const document = {
       uri,
@@ -498,8 +468,7 @@ export function createObsidianVscodeShim(deps: ObsidianShimDependencies) {
     },
     onDidChangeConfiguration: configChangeEmitter.event,
     asRelativePath(pathOrUri: SimpleUri | string, _includeWorkspaceFolder?: boolean) {
-      const fsPath =
-        typeof pathOrUri === "string" ? pathOrUri : pathOrUri.fsPath;
+      const fsPath = typeof pathOrUri === "string" ? pathOrUri : pathOrUri.fsPath;
       const rel = path.relative(deps.vaultBasePath, fsPath).replace(/\\/g, "/");
       return rel.startsWith("..") ? fsPath : rel;
     },
@@ -569,10 +538,18 @@ export function createObsidianVscodeShim(deps: ObsidianShimDependencies) {
           onDidCreate: onCreate.event,
           onDidDelete: onDelete.event,
           dispose() {
-            try { deps.vault.offref?.(refCreate); } catch {}
-            try { deps.vault.offref?.(refModify); } catch {}
-            try { deps.vault.offref?.(refDelete); } catch {}
-            try { deps.vault.offref?.(refRename); } catch {}
+            try {
+              deps.vault.offref?.(refCreate);
+            } catch {}
+            try {
+              deps.vault.offref?.(refModify);
+            } catch {}
+            try {
+              deps.vault.offref?.(refDelete);
+            } catch {}
+            try {
+              deps.vault.offref?.(refRename);
+            } catch {}
             onChange.dispose();
             onCreate.dispose();
             onDelete.dispose();
@@ -624,8 +601,7 @@ export function createObsidianVscodeShim(deps: ObsidianShimDependencies) {
       };
     },
     async openTextDocument(uriOrPath: SimpleUri | string) {
-      const uri =
-        typeof uriOrPath === "string" ? SimpleUri.file(uriOrPath) : uriOrPath;
+      const uri = typeof uriOrPath === "string" ? SimpleUri.file(uriOrPath) : uriOrPath;
       let content = "";
       if (uri.scheme === "file") {
         if (isInsideVault(uri.fsPath, deps.vaultBasePath)) {
@@ -751,10 +727,7 @@ export function createObsidianVscodeShim(deps: ObsidianShimDependencies) {
         const entries = await fsp.readdir(uri.fsPath, { withFileTypes: true });
         return entries
           .filter((e) => !e.name.startsWith(".obsidian") && e.name !== ".git")
-          .map((e) => [
-            e.name,
-            e.isDirectory() ? FileType.Directory : FileType.File,
-          ]);
+          .map((e) => [e.name, e.isDirectory() ? FileType.Directory : FileType.File]);
       },
     },
   };
@@ -778,9 +751,7 @@ export function createObsidianVscodeShim(deps: ObsidianShimDependencies) {
     tabGroups: {
       get all() {
         const ed = makeActiveTextEditor();
-        return ed
-          ? [{ tabs: [{ input: new TabInputText(ed.document.uri) }] }]
-          : [];
+        return ed ? [{ tabs: [{ input: new TabInputText(ed.document.uri) }] }] : [];
       },
       onDidChangeTabs: tabChangeEmitter.event,
     },
@@ -793,10 +764,7 @@ export function createObsidianVscodeShim(deps: ObsidianShimDependencies) {
           console.debug(line);
         },
         show() {
-          deps.showNotice?.(
-            lines.slice(-8).join("\n") || "Hermes Studio log is empty.",
-            "info",
-          );
+          deps.showNotice?.(lines.slice(-8).join("\n") || "Hermes Studio log is empty.", "info");
         },
         dispose() {},
         getLines: () => [...lines],
@@ -864,31 +832,21 @@ export function createObsidianVscodeShim(deps: ObsidianShimDependencies) {
     },
     async showInformationMessage(message: string, ...items: any[]) {
       const actions = items.filter((i) => typeof i === "string") as string[];
-      return deps.showNotice
-        ? deps.showNotice(message, "info", actions)
-        : undefined;
+      return deps.showNotice ? deps.showNotice(message, "info", actions) : undefined;
     },
     async showWarningMessage(message: string, ...items: any[]) {
       const actions = items.filter((i) => typeof i === "string") as string[];
-      return deps.showNotice
-        ? deps.showNotice(message, "warning", actions)
-        : undefined;
+      return deps.showNotice ? deps.showNotice(message, "warning", actions) : undefined;
     },
     async showErrorMessage(message: string, ...items: any[]) {
       const actions = items.filter((i) => typeof i === "string") as string[];
-      return deps.showNotice
-        ? deps.showNotice(message, "error", actions)
-        : undefined;
+      return deps.showNotice ? deps.showNotice(message, "error", actions) : undefined;
     },
     async showQuickPick(items: any[], options?: any) {
-      return deps.showQuickPickModal
-        ? deps.showQuickPickModal(items, options)
-        : undefined;
+      return deps.showQuickPickModal ? deps.showQuickPickModal(items, options) : undefined;
     },
     async showOpenDialog(options?: any) {
-      return deps.showOpenFileDialog
-        ? deps.showOpenFileDialog(options)
-        : undefined;
+      return deps.showOpenFileDialog ? deps.showOpenFileDialog(options) : undefined;
     },
     async showTextDocument(docOrUri: any, options?: any) {
       const uri: SimpleUri = docOrUri?.uri ?? docOrUri;
@@ -896,9 +854,7 @@ export function createObsidianVscodeShim(deps: ObsidianShimDependencies) {
       if (uri && deps.openFileInObsidian) {
         await deps.openFileInObsidian(
           uri.fsPath,
-          sel
-            ? { startLine: sel.start.line + 1, endLine: sel.end.line + 1 }
-            : undefined,
+          sel ? { startLine: sel.start.line + 1, endLine: sel.end.line + 1 } : undefined,
         );
       }
       return makeActiveTextEditor();
@@ -918,19 +874,12 @@ export function createObsidianVscodeShim(deps: ObsidianShimDependencies) {
       if (registeredCommands.has(id)) {
         return registeredCommands.get(id)!(...args);
       }
-      if (
-        id === "workbench.view.extension.hermes-studio" ||
-        id === "hermesStudio.chat.focus"
-      ) {
+      if (id === "workbench.view.extension.hermes-studio" || id === "hermesStudio.chat.focus") {
         await deps.revealSideView?.();
         return;
       }
       if (id === "vscode.diff") {
-        const [leftUri, rightUri, title] = args as [
-          SimpleUri,
-          SimpleUri,
-          string,
-        ];
+        const [leftUri, rightUri, title] = args as [SimpleUri, SimpleUri, string];
         await deps.openDiffInObsidian?.({
           leftUri,
           rightUri,
@@ -959,9 +908,7 @@ export function createObsidianVscodeShim(deps: ObsidianShimDependencies) {
                 return "";
               }
             }
-            return contentProviders
-              .get(u.scheme)
-              ?.provideTextDocumentContent(u);
+            return contentProviders.get(u.scheme)?.provideTextDocumentContent(u);
           },
         });
         return;
@@ -989,10 +936,7 @@ export function createObsidianVscodeShim(deps: ObsidianShimDependencies) {
         const abs = path.join(deps.vaultBasePath, p.relPath);
         const list = byFile.get(abs) ?? [];
         list.push({
-          severity:
-            p.severity === "error"
-              ? DiagnosticSeverity.Error
-              : DiagnosticSeverity.Warning,
+          severity: p.severity === "error" ? DiagnosticSeverity.Error : DiagnosticSeverity.Warning,
           range: new SimpleRange(
             Math.max(0, p.line - 1),
             Math.max(0, p.column - 1),
@@ -1004,10 +948,7 @@ export function createObsidianVscodeShim(deps: ObsidianShimDependencies) {
         });
         byFile.set(abs, list);
       }
-      return [...byFile.entries()].map(([abs, list]) => [
-        SimpleUri.file(abs),
-        list,
-      ]);
+      return [...byFile.entries()].map(([abs, list]) => [SimpleUri.file(abs), list]);
     },
   };
 
@@ -1093,8 +1034,7 @@ export function createObsidianVscodeShim(deps: ObsidianShimDependencies) {
           affectsConfiguration: (sec: string) =>
             !key || sec === "hermesStudio" || sec === `hermesStudio.${key}`,
         }),
-      fireWindowFocusChanged: (focused: boolean) =>
-        windowStateEmitter.fire({ focused }),
+      fireWindowFocusChanged: (focused: boolean) => windowStateEmitter.fire({ focused }),
       getWebviewViewProvider: () => webviewViewProvider,
       getUriHandler: () => uriHandler,
       getContentProvider: (scheme: string) => contentProviders.get(scheme),

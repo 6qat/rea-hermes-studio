@@ -6,19 +6,12 @@ import {
   Plugin,
   TFile,
   TFolder,
-  WorkspaceLeaf,
+  type WorkspaceLeaf,
 } from "obsidian";
-import {
-  ActivatedHermesCore,
-  activateHermesCore,
-} from "./host/hermes-core-bridge";
+import { type ActivatedHermesCore, activateHermesCore } from "./host/hermes-core-bridge";
 import { VaultNoteTracker } from "./host/note-tracker";
 import { createObsidianVscodeShim, SimpleUri } from "./host/obsidian-shim";
-import {
-  DEFAULT_HERMES_SETTINGS,
-  HermesPluginSettings,
-  HermesSettingTab,
-} from "./settings";
+import { DEFAULT_HERMES_SETTINGS, type HermesPluginSettings, HermesSettingTab } from "./settings";
 import {
   HERMES_DIFF_VIEW_TYPE,
   HERMES_EDITOR_VIEW_TYPE,
@@ -33,11 +26,7 @@ import {
   showImageFileDialog,
 } from "./views/modals";
 
-export {
-  HERMES_SIDE_VIEW_TYPE,
-  HERMES_EDITOR_VIEW_TYPE,
-  HERMES_DIFF_VIEW_TYPE,
-};
+export { HERMES_DIFF_VIEW_TYPE, HERMES_EDITOR_VIEW_TYPE, HERMES_SIDE_VIEW_TYPE };
 
 // Hermes Studio 100x100 scaled icon for Obsidian's addIcon API
 const HERMES_OBSIDIAN_ICON_SVG = `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path fill="currentColor" d="M4 4h3.2v6.6h7.6V4H18v16h-3.2v-6.6H7.2V20H4z"/><path fill="currentColor" d="M18 4.2c1.9-1.5 3.6-1.6 5-.9-1.1.4-2 1.1-2.6 2.1.8-.1 1.6 0 2.3.4-1.3.4-2.6 1.3-3.4 2.6H18z"/></svg>`;
@@ -80,8 +69,7 @@ export default class HermesStudioPlugin extends Plugin {
 
     this.noteTracker = new VaultNoteTracker({
       vaultBasePath,
-      resolveWikiLink: (linkpath, sourcePath) =>
-        this.resolveVaultWikiLink(linkpath, sourcePath),
+      resolveWikiLink: (linkpath, sourcePath) => this.resolveVaultWikiLink(linkpath, sourcePath),
       onChange: () => {
         this.vscodeShim?._internal.fireActiveEditorChanged();
         this.vscodeShim?._internal.fireSelectionChanged();
@@ -139,10 +127,7 @@ export default class HermesStudioPlugin extends Plugin {
           afterText,
           filePath,
           onOpenFile: (fp, line) => {
-            void this.openVaultFile(
-              fp,
-              line ? { startLine: line, endLine: line } : undefined,
-            );
+            void this.openVaultFile(fp, line ? { startLine: line, endLine: line } : undefined);
           },
         });
       },
@@ -150,8 +135,7 @@ export default class HermesStudioPlugin extends Plugin {
         (this.app as any)?.setting?.open?.();
         (this.app as any)?.setting?.openTabById?.(this.manifest.id);
       },
-      showNotice: (message, level, actions) =>
-        showHermesNotice(message, level, actions),
+      showNotice: (message, level, actions) => showHermesNotice(message, level, actions),
       showQuickPickModal: (items, options) =>
         new Promise((resolve) => {
           if (options?.canPickMany) {
@@ -185,8 +169,7 @@ export default class HermesStudioPlugin extends Plugin {
         this.settings.workspaceState = next;
         void this.saveData(this.settings);
       },
-      resolvePromptWikiLinks: (text) =>
-        this.noteTracker.resolvePromptWikiLinks(text),
+      resolvePromptWikiLinks: (text) => this.noteTracker.resolvePromptWikiLinks(text),
       getCustomEnv: () => this.settings.environment ?? {},
     });
 
@@ -199,19 +182,12 @@ export default class HermesStudioPlugin extends Plugin {
       HERMES_EDITOR_VIEW_TYPE,
       (leaf) => new HermesStudioView(leaf, this, "editor"),
     );
-    this.safeRegisterView(
-      HERMES_DIFF_VIEW_TYPE,
-      (leaf) => new HermesDiffItemView(leaf, this),
-    );
+    this.safeRegisterView(HERMES_DIFF_VIEW_TYPE, (leaf) => new HermesDiffItemView(leaf, this));
 
     // Add Ribbon Icon
-    this.ribbonEl = this.addRibbonIcon(
-      "hermes-studio",
-      "Hermes Studio",
-      () => {
-        void this.activateSideView();
-      },
-    );
+    this.ribbonEl = this.addRibbonIcon("hermes-studio", "Hermes Studio", () => {
+      void this.activateSideView();
+    });
 
     // Add Settings Tab
     this.addSettingTab(new HermesSettingTab(this.app, this));
@@ -235,10 +211,7 @@ export default class HermesStudioPlugin extends Plugin {
     this.registerHermesCommands();
   }
 
-  private safeRegisterView(
-    viewType: string,
-    factory: (leaf: WorkspaceLeaf) => any,
-  ): void {
+  private safeRegisterView(viewType: string, factory: (leaf: WorkspaceLeaf) => any): void {
     try {
       this.registerView(viewType, factory);
     } catch {
@@ -326,14 +299,8 @@ export default class HermesStudioPlugin extends Plugin {
     }
   }
 
-  private resolveVaultWikiLink(
-    linkpath: string,
-    sourcePath = "",
-  ): string | undefined {
-    const dest = this.app?.metadataCache?.getFirstLinkpathDest?.(
-      linkpath,
-      sourcePath,
-    );
+  private resolveVaultWikiLink(linkpath: string, sourcePath = ""): string | undefined {
+    const dest = this.app?.metadataCache?.getFirstLinkpathDest?.(linkpath, sourcePath);
     if (dest?.path) return dest.path;
     const files: TFile[] = this.app?.vault?.getMarkdownFiles?.() ?? [];
     const found = files.find(
@@ -358,9 +325,7 @@ export default class HermesStudioPlugin extends Plugin {
 
     for (const [sourcePath, linksObj] of Object.entries(unresolved)) {
       if (!linksObj || typeof linksObj !== "object") continue;
-      for (const [missingTarget, count] of Object.entries(
-        linksObj as Record<string, number>,
-      )) {
+      for (const [missingTarget, count] of Object.entries(linksObj as Record<string, number>)) {
         if (count > 0) {
           out.push({
             relPath: sourcePath,
@@ -407,7 +372,8 @@ export default class HermesStudioPlugin extends Plugin {
 
     // 4. MetadataCache link destination
     if (this.app?.metadataCache?.getFirstLinkpathDest?.(clean, "")) return true;
-    if (withoutSlash && this.app?.metadataCache?.getFirstLinkpathDest?.(withoutSlash, "")) return true;
+    if (withoutSlash && this.app?.metadataCache?.getFirstLinkpathDest?.(withoutSlash, ""))
+      return true;
 
     // 5. Match by file name, basename, or path across vault files
     const lower = clean.toLowerCase();
@@ -474,7 +440,7 @@ export default class HermesStudioPlugin extends Plugin {
     // 2. Parse inline line numbers if not explicitly provided
     if (!selection) {
       const lineMatch = /^(.*?):(\d+)(?::\d+)?$/.exec(target);
-      if (lineMatch && lineMatch[1] && lineMatch[2]) {
+      if (lineMatch?.[1] && lineMatch[2]) {
         target = lineMatch[1].trim();
         const l = parseInt(lineMatch[2], 10);
         if (l > 0) selection = { startLine: l, endLine: l };
@@ -509,8 +475,7 @@ export default class HermesStudioPlugin extends Plugin {
     // 5. Check metadataCache destination
     if (!abstractFile) {
       abstractFile =
-        this.app?.metadataCache?.getFirstLinkpathDest?.(cleanTarget || target, "") ??
-        null;
+        this.app?.metadataCache?.getFirstLinkpathDest?.(cleanTarget || target, "") ?? null;
     }
 
     // 6. Match against vault files by name or basename
@@ -521,12 +486,7 @@ export default class HermesStudioPlugin extends Plugin {
         const fn = f.name?.toLowerCase?.() ?? "";
         const bn = f.basename?.toLowerCase?.() ?? "";
         const fp = f.path?.toLowerCase?.() ?? "";
-        return (
-          fn === lower ||
-          bn === lower ||
-          fp === lower ||
-          fp === `${lower}.md`
-        );
+        return fn === lower || bn === lower || fp === lower || fp === `${lower}.md`;
       });
       if (matchedFile) {
         abstractFile = matchedFile;
@@ -586,9 +546,7 @@ export default class HermesStudioPlugin extends Plugin {
         this.app?.workspace?.setActiveLeaf?.(leaf, { focus: true });
       } else {
         // Only open a new tab when it's not already opened
-        leaf =
-          this.app?.workspace?.getLeaf?.("tab") ??
-          this.app?.workspace?.getLeaf?.(false);
+        leaf = this.app?.workspace?.getLeaf?.("tab") ?? this.app?.workspace?.getLeaf?.(false);
         if (leaf && typeof (leaf as any).openFile === "function") {
           await (leaf as any).openFile(abstractFile, {
             active: true,
@@ -626,10 +584,7 @@ export default class HermesStudioPlugin extends Plugin {
           if (editor) {
             const line = Math.max(0, selection.startLine - 1);
             editor.setCursor?.({ line, ch: 0 });
-            editor.scrollIntoView?.(
-              { from: { line, ch: 0 }, to: { line, ch: 0 } },
-              true,
-            );
+            editor.scrollIntoView?.({ from: { line, ch: 0 }, to: { line, ch: 0 } }, true);
           }
         }
         return true;
@@ -711,7 +666,7 @@ export default class HermesStudioPlugin extends Plugin {
             .onClick(async () => {
               this.refreshTrackerFromWorkspace();
               await this.activateSideView();
-              this.activeSideView?. notifyAddContext("selection");
+              this.activeSideView?.notifyAddContext("selection");
             });
         });
       }),

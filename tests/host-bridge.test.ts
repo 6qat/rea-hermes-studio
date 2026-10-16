@@ -1,10 +1,11 @@
 // @vitest-environment jsdom
-import { describe, expect, it } from "vitest";
+
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { createObsidianVscodeShim } from "../src/host/obsidian-shim";
+import { describe, expect, it } from "vitest";
 import { activateHermesCore } from "../src/host/hermes-core-bridge";
+import { createObsidianVscodeShim } from "../src/host/obsidian-shim";
 import { computeUnifiedDiffLines } from "../src/views/hermes-diff-view";
 import { mountHermesWebview } from "../src/webview/webview-mount";
 
@@ -14,18 +15,10 @@ describe("HermesDiffView line diff computation", () => {
     const after = "line 1\nnew line 2\nadded line\nline 3\n";
     const rows = computeUnifiedDiffLines(before, after);
 
-    expect(rows.some((r) => r.kind === "del" && r.text === "old line 2")).toBe(
-      true,
-    );
-    expect(rows.some((r) => r.kind === "add" && r.text === "new line 2")).toBe(
-      true,
-    );
-    expect(rows.some((r) => r.kind === "add" && r.text === "added line")).toBe(
-      true,
-    );
-    expect(rows.some((r) => r.kind === "ctx" && r.text === "line 1")).toBe(
-      true,
-    );
+    expect(rows.some((r) => r.kind === "del" && r.text === "old line 2")).toBe(true);
+    expect(rows.some((r) => r.kind === "add" && r.text === "new line 2")).toBe(true);
+    expect(rows.some((r) => r.kind === "add" && r.text === "added line")).toBe(true);
+    expect(rows.some((r) => r.kind === "ctx" && r.text === "line 1")).toBe(true);
   });
 });
 
@@ -47,8 +40,7 @@ describe("Hermes Core Host <-> Shadow DOM Svelte 5 Webview Integration", () => {
         autoStart: false,
         notifications: "all",
       }),
-      resolveWikiLink: (link) =>
-        link === "Architecture" ? "Architecture.md" : undefined,
+      resolveWikiLink: (link) => (link === "Architecture" ? "Architecture.md" : undefined),
     });
 
     const core = activateHermesCore({
@@ -119,9 +111,7 @@ describe("Hermes Core Host <-> Shadow DOM Svelte 5 Webview Integration", () => {
 
     const ctxMsgs = hostToWebviewMessages.filter((m) => m.type === "context");
     const lastCtx = ctxMsgs.at(-1);
-    expect(lastCtx?.items?.some((item: any) => item.label === "Architecture.md")).toBe(
-      true,
-    );
+    expect(lastCtx?.items?.some((item: any) => item.label === "Architecture.md")).toBe(true);
 
     mounted.destroy();
     await core.deactivate();
@@ -196,27 +186,20 @@ describe("Hermes Core Host <-> Shadow DOM Svelte 5 Webview Integration", () => {
     await new Promise((r) => setTimeout(r, 30));
 
     // 1. Verify editorContext chip includes line 2 selection
-    const editorCtx = hostToWebviewMessages
-      .filter((m) => m.type === "editorContext")
-      .at(-1);
+    const editorCtx = hostToWebviewMessages.filter((m) => m.type === "editorContext").at(-1);
     expect(editorCtx?.file?.label).toBe("SingleLine.md 2");
 
     // 2. Verify addContext("selection") adds the single-line selection chip
     webviewReceiveCallback?.({ type: "addContext", kind: "selection" });
-    const ctxMsg = hostToWebviewMessages
-      .filter((m) => m.type === "context")
-      .at(-1);
+    const ctxMsg = hostToWebviewMessages.filter((m) => m.type === "context").at(-1);
     expect(
-      ctxMsg?.items?.some(
-        (i: any) => i.kind === "selection" && i.label === "SingleLine.md 2",
-      ),
+      ctxMsg?.items?.some((i: any) => i.kind === "selection" && i.label === "SingleLine.md 2"),
     ).toBe(true);
 
     // 3. Verify hermesStudio.openChatInEditor triggers async leaf open without blocking subsequent adopt()
     await shim.commands.executeCommand("hermesStudio.openChatInEditor");
     expect(editorLeafOpened).toBe(true);
 
-    let editorAdopted = false;
     provider.adopt({
       visible: true,
       webview: {
@@ -230,9 +213,7 @@ describe("Hermes Core Host <-> Shadow DOM Svelte 5 Webview Integration", () => {
       reveal() {},
       onDidChangeViewState: () => ({ dispose() {} }),
       onDidDispose: () => ({ dispose() {} }),
-      dispose: () => {
-        editorAdopted = false;
-      },
+      dispose: () => {},
     });
     expect(provider.panel).toBeDefined();
 

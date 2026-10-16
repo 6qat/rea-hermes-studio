@@ -1,9 +1,9 @@
-import { describe, expect, it, vi } from "vitest";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { describe, expect, it } from "vitest";
+import { extractWikiLinks, VaultNoteTracker } from "../src/host/note-tracker";
 import { createObsidianVscodeShim } from "../src/host/obsidian-shim";
-import { VaultNoteTracker, extractWikiLinks } from "../src/host/note-tracker";
 
 describe("extractWikiLinks & VaultNoteTracker", () => {
   it("extracts [[WikiLinks]] with optional aliases and headings from prompt text", () => {
@@ -16,8 +16,7 @@ describe("extractWikiLinks & VaultNoteTracker", () => {
   it("preserves the last active Markdown note and selection when focus moves to Hermes Studio view", () => {
     const tracker = new VaultNoteTracker({
       vaultBasePath: "/vault",
-      resolveWikiLink: (link) =>
-        link === "Roadmap" ? "docs/Roadmap.md" : undefined,
+      resolveWikiLink: (link) => (link === "Roadmap" ? "docs/Roadmap.md" : undefined),
     });
 
     tracker.updateFromEditor({
@@ -57,14 +56,11 @@ describe("createObsidianVscodeShim", () => {
         autoStart: true,
         notifications: "all",
       }),
-      resolveWikiLink: (link) =>
-        link === "Idea" ? "Notes/Idea.md" : undefined,
+      resolveWikiLink: (link) => (link === "Idea" ? "Notes/Idea.md" : undefined),
     });
 
     // 1. obsidian://open?vault=TestVault&file=Notes%2FIdea.md
-    const obsUri = shim.Uri.parse(
-      "obsidian://open?vault=TestVault&file=Notes%2FIdea.md",
-    );
+    const obsUri = shim.Uri.parse("obsidian://open?vault=TestVault&file=Notes%2FIdea.md");
     expect(obsUri.scheme).toBe("file");
     expect(obsUri.fsPath).toBe(notePath);
     expect(shim.workspace.asRelativePath(obsUri, false)).toBe("Notes/Idea.md");
@@ -116,7 +112,7 @@ describe("createObsidianVscodeShim", () => {
 
     const mockAdapter: any = {
       exists: async () => true,
-      stat: async (p: string) => {
+      stat: async (_p: string) => {
         adapterStatCalled = true;
         return { ctime: 1234, mtime: 5678, size: 42, type: "file" };
       },
@@ -125,7 +121,7 @@ describe("createObsidianVscodeShim", () => {
         adapterReadBinaryCalled = true;
         return new TextEncoder().encode("# From Adapter Binary").buffer;
       },
-      list: async (p: string) => {
+      list: async (_p: string) => {
         adapterListCalled = true;
         return { files: ["Notes/Idea.md"], folders: ["Notes"] };
       },
@@ -159,9 +155,7 @@ describe("createObsidianVscodeShim", () => {
     expect(new TextDecoder().decode(bytes)).toContain("# From Vault Binary");
 
     // 3. readDirectory uses adapter.list
-    const dirList = await shim.workspace.fs.readDirectory(
-      shim.Uri.file("/mock/vault/Notes"),
-    );
+    const dirList = await shim.workspace.fs.readDirectory(shim.Uri.file("/mock/vault/Notes"));
     expect(adapterListCalled).toBe(true);
     expect(dirList.length).toBeGreaterThan(0);
 

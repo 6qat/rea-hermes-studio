@@ -1,4 +1,4 @@
-import { App, FuzzySuggestModal, Modal, Notice } from "obsidian";
+import { type App, FuzzySuggestModal, Modal, Notice } from "obsidian";
 import { SimpleUri } from "../host/obsidian-shim";
 
 export class HermesQuickPickModal extends FuzzySuggestModal<any> {
@@ -65,14 +65,12 @@ export class HermesMultiPickModal extends Modal {
     const { contentEl, titleEl } = this;
     titleEl.textContent = this.options?.title ?? "Select files";
     contentEl.innerHTML = "";
-    contentEl.style.cssText =
-      "display:flex;flex-direction:column;gap:10px;max-height:70vh;";
+    contentEl.style.cssText = "display:flex;flex-direction:column;gap:10px;max-height:70vh;";
 
     const doc = contentEl.ownerDocument;
     const searchInput = doc.createElement("input");
     searchInput.type = "text";
-    searchInput.placeholder =
-      this.options?.placeHolder ?? "Type to filter files…";
+    searchInput.placeholder = this.options?.placeHolder ?? "Type to filter files…";
     searchInput.style.cssText = "width:100%;padding:6px 10px;";
     contentEl.appendChild(searchInput);
 
@@ -104,8 +102,7 @@ export class HermesMultiPickModal extends Modal {
         labelSpan.textContent = item.label ?? String(item);
 
         const descSpan = doc.createElement("span");
-        descSpan.style.cssText =
-          "color:var(--text-muted);font-size:12px;margin-left:auto;";
+        descSpan.style.cssText = "color:var(--text-muted);font-size:12px;margin-left:auto;";
         descSpan.textContent = item.description ?? "";
 
         row.append(cb, labelSpan, descSpan);

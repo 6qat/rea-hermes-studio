@@ -1,7 +1,7 @@
-import esbuild from "esbuild";
 import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
+import esbuild from "esbuild";
 
 const prod = process.argv[2] === "production";
 const vaultPluginDir =

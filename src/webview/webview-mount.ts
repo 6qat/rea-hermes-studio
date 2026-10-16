@@ -34,17 +34,14 @@ export function extractDroppedFileUris(raw: string): string[] {
 
     // 2. Obsidian [[WikiLink]] or ![[Embed]]
     const wikiMatch = /^!?\[\[([^\]|#]+)(?:[|#][^\]]*)?\]\]$/.exec(line);
-    if (wikiMatch && wikiMatch[1]?.trim()) {
+    if (wikiMatch?.[1]?.trim()) {
       results.push(`wikilink://${wikiMatch[1].trim()}`);
-      continue;
     }
   }
   return results;
 }
 
-export function mountHermesWebview(
-  options: HermesWebviewMountOptions,
-): HermesWebviewMounted {
+export function mountHermesWebview(options: HermesWebviewMountOptions): HermesWebviewMounted {
   if (typeof globalThis.ResizeObserver === "undefined") {
     (globalThis as any).ResizeObserver = class {
       observe() {}

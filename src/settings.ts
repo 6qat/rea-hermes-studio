@@ -1,4 +1,4 @@
-import { App, PluginSettingTab, Setting } from "obsidian";
+import { type App, PluginSettingTab, Setting } from "obsidian";
 import type HermesStudioPlugin from "./main";
 
 export interface HermesPluginSettings {
@@ -55,7 +55,11 @@ export class HermesSettingTab extends PluginSettingTab {
 
   display(): void {
     const { containerEl } = this;
-    containerEl.empty?.() ?? (containerEl.innerHTML = "");
+    if (typeof containerEl.empty === "function") {
+      containerEl.empty();
+    } else {
+      containerEl.innerHTML = "";
+    }
 
     const title = containerEl.ownerDocument.createElement("h2");
     title.textContent = "Hermes Studio";
@@ -136,7 +140,7 @@ export class HermesSettingTab extends PluginSettingTab {
           .setValue(String(this.plugin.settings.statusBarPadding ?? 14))
           .onChange(async (val) => {
             const num = parseInt(val.trim(), 10);
-            this.plugin.settings.statusBarPadding = isNaN(num) ? 14 : Math.max(0, num);
+            this.plugin.settings.statusBarPadding = Number.isNaN(num) ? 14 : Math.max(0, num);
             await this.plugin.saveSettings("statusBarPadding");
           }),
       );
@@ -147,16 +151,12 @@ export class HermesSettingTab extends PluginSettingTab {
       .addButton((btn) =>
         btn
           .setButtonText("Refresh Panels")
-          .onClick(() =>
-            this.plugin.executeHermesCommand("hermesStudio.refreshPanels"),
-          ),
+          .onClick(() => this.plugin.executeHermesCommand("hermesStudio.refreshPanels")),
       )
       .addButton((btn) =>
         btn
           .setButtonText("Show Log")
-          .onClick(() =>
-            this.plugin.executeHermesCommand("hermesStudio.showLog"),
-          ),
+          .onClick(() => this.plugin.executeHermesCommand("hermesStudio.showLog")),
       );
   }
 }

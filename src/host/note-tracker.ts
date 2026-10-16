@@ -47,19 +47,14 @@ const DEFAULT_PRESERVE_VIEWS = new Set([
 export class VaultNoteTracker {
   private state: TrackedNoteState | undefined;
   private readonly vaultBasePath: string;
-  private readonly resolveWikiLink?: (
-    linkpath: string,
-    sourcePath?: string,
-  ) => string | undefined;
+  private readonly resolveWikiLink?: (linkpath: string, sourcePath?: string) => string | undefined;
   private readonly preserveViews: Set<string>;
   private readonly onChange?: (state: TrackedNoteState | undefined) => void;
 
   constructor(options: VaultNoteTrackerOptions) {
     this.vaultBasePath = options.vaultBasePath;
     this.resolveWikiLink = options.resolveWikiLink;
-    this.preserveViews = new Set(
-      options.preserveOnViewTypes ?? [...DEFAULT_PRESERVE_VIEWS],
-    );
+    this.preserveViews = new Set(options.preserveOnViewTypes ?? [...DEFAULT_PRESERVE_VIEWS]);
     this.onChange = options.onChange;
   }
 
@@ -77,9 +72,7 @@ export class VaultNoteTracker {
       relPath: cleanRel,
       absPath: path.join(this.vaultBasePath, cleanRel),
       cursorLine: Math.max(1, input.cursorLine),
-      ...(input.selection && input.selection.text.length > 0
-        ? { selection: input.selection }
-        : {}),
+      ...(input.selection && input.selection.text.length > 0 ? { selection: input.selection } : {}),
     };
     this.onChange?.(this.state);
   }

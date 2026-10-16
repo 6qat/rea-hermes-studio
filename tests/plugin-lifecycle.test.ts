@@ -1,13 +1,14 @@
 // @vitest-environment jsdom
-import { describe, expect, it } from "vitest";
+
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { FileSystemAdapter } from "obsidian";
+import { describe, expect, it } from "vitest";
 import HermesStudioPlugin, {
-  HERMES_SIDE_VIEW_TYPE,
-  HERMES_EDITOR_VIEW_TYPE,
   HERMES_DIFF_VIEW_TYPE,
+  HERMES_EDITOR_VIEW_TYPE,
+  HERMES_SIDE_VIEW_TYPE,
 } from "../src/main";
 
 describe("HermesStudioPlugin lifecycle & views", () => {
@@ -24,7 +25,11 @@ describe("HermesStudioPlugin lifecycle & views", () => {
         getName: () => "PluginTestVault",
         getFiles: () => [
           { name: "Meus Documentos.md", basename: "Meus Documentos", path: "Meus Documentos.md" },
-          { name: "identidade-1.jpg", basename: "identidade-1", path: "attachments/identidade-1.jpg" },
+          {
+            name: "identidade-1.jpg",
+            basename: "identidade-1",
+            path: "attachments/identidade-1.jpg",
+          },
         ],
         getMarkdownFiles: () => [
           { name: "Meus Documentos.md", basename: "Meus Documentos", path: "Meus Documentos.md" },
@@ -34,8 +39,7 @@ describe("HermesStudioPlugin lifecycle & views", () => {
             return { name: "Meus Documentos.md", path: "Meus Documentos.md" };
           if (p === "attachments/identidade-1.jpg")
             return { name: "identidade-1.jpg", path: "attachments/identidade-1.jpg" };
-          if (p === "attachments")
-            return { name: "attachments", path: "attachments" };
+          if (p === "attachments") return { name: "attachments", path: "attachments" };
           return null;
         },
         on: () => ({}),
@@ -123,9 +127,7 @@ describe("HermesStudioPlugin lifecycle & views", () => {
 
     await new Promise((r) => setTimeout(r, 60));
     expect(sideView.contentEl.shadowRoot).not.toBeNull();
-    expect(
-      sideView.contentEl.shadowRoot!.getElementById("app"),
-    ).not.toBeNull();
+    expect(sideView.contentEl.shadowRoot!.getElementById("app")).not.toBeNull();
 
     // 2. Instantiate the diff view and verify unified diff rendering
     const diffFactory = (plugin as any).views.get(HERMES_DIFF_VIEW_TYPE);

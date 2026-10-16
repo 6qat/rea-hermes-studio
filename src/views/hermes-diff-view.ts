@@ -16,10 +16,7 @@ export interface DiffViewPayload {
 /**
  * Computes a line-by-line unified diff between `before` and `after` using LCS.
  */
-export function computeUnifiedDiffLines(
-  before: string,
-  after: string,
-): UnifiedDiffRow[] {
+export function computeUnifiedDiffLines(before: string, after: string): UnifiedDiffRow[] {
   const splitLines = (s: string) => {
     if (!s) return [];
     const lines = s.split(/\r?\n/);
@@ -108,10 +105,7 @@ export function computeUnifiedDiffLines(
 /**
  * Renders a dark-themed unified diff view inside an Obsidian leaf container.
  */
-export function renderDiffIntoContainer(
-  container: HTMLElement,
-  payload: DiffViewPayload,
-): void {
+export function renderDiffIntoContainer(container: HTMLElement, payload: DiffViewPayload): void {
   const doc = container.ownerDocument || document;
   container.innerHTML = "";
 
@@ -140,7 +134,8 @@ export function renderDiffIntoContainer(
   ].join(";");
 
   const titleEl = doc.createElement("div");
-  titleEl.style.cssText = "font-weight:600;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;";
+  titleEl.style.cssText =
+    "font-weight:600;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;";
   titleEl.textContent = payload.title;
   header.appendChild(titleEl);
 
@@ -170,10 +165,7 @@ export function renderDiffIntoContainer(
     ].join(";");
     const firstChanged = rows.find((r) => r.kind !== "ctx");
     openBtn.addEventListener("click", () => {
-      payload.onOpenFile?.(
-        payload.filePath!,
-        firstChanged?.newLine ?? firstChanged?.oldLine ?? 1,
-      );
+      payload.onOpenFile?.(payload.filePath!, firstChanged?.newLine ?? firstChanged?.oldLine ?? 1);
     });
     rightBar.appendChild(openBtn);
   }

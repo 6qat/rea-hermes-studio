@@ -22,7 +22,10 @@ export class FileSystemAdapter {
 }
 
 export function normalizePath(p: string): string {
-  return p.replace(/\\/g, "/").replace(/\/+/g, "/").replace(/^\/|\/$/g, "");
+  return p
+    .replace(/\\/g, "/")
+    .replace(/\/+/g, "/")
+    .replace(/^\/|\/$/g, "");
 }
 
 export class Component {
@@ -126,12 +129,20 @@ export class FuzzySuggestModal<T> extends Modal {
 
 export class Notice {
   noticeEl: HTMLElement = document.createElement("div");
-  constructor(_msg: string, _timeout?: number) {}
+  message: string;
+  timeout?: number;
+  constructor(msg: string, timeout?: number) {
+    this.message = msg;
+    this.timeout = timeout;
+  }
   hide(): void {}
 }
 
 export class Setting {
-  constructor(_el: HTMLElement) {}
+  settingEl: HTMLElement;
+  constructor(el: HTMLElement) {
+    this.settingEl = el;
+  }
   setName(_n: string) {
     return this;
   }

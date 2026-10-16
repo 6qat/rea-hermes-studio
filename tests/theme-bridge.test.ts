@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from "vitest";
-import { THEME_BRIDGE_CSS, HERMES_WEBVIEW_BASE_CSS } from "../src/webview/theme-bridge";
-import { mountHermesWebview, extractDroppedFileUris } from "../src/webview/webview-mount";
+import { HERMES_WEBVIEW_BASE_CSS, THEME_BRIDGE_CSS } from "../src/webview/theme-bridge";
+import { extractDroppedFileUris, mountHermesWebview } from "../src/webview/webview-mount";
 
 describe("Theme Bridge CSS coverage", () => {
   it("maps every --vscode-* variable referenced in webview-base.css with dark theme defaults", () => {
@@ -43,7 +43,7 @@ describe("Shadow-DOM scoped Svelte 5 webview mount", () => {
     const shadowRoot = hostEl.attachShadow({ mode: "open" });
 
     const receivedByHost: any[] = [];
-    let stateStore: any = undefined;
+    let stateStore: any;
 
     const instance = mountHermesWebview({
       shadowRoot,
@@ -84,7 +84,7 @@ describe("Shadow-DOM scoped Svelte 5 webview mount", () => {
     // Verify the Svelte 5 DOM rendered inside shadowRoot
     const appEl = shadowRoot.getElementById("app");
     expect(appEl).not.toBeNull();
-    expect(appEl!.innerHTML).toContain("role=\"tabpanel\"");
+    expect(appEl!.innerHTML).toContain('role="tabpanel"');
     expect(appEl!.textContent).toContain("anthropic/claude-sonnet-4");
     expect(appEl!.textContent).toContain("Main_Vault");
 
