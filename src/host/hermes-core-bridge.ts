@@ -62,7 +62,7 @@ export function activateHermesCore(
       id: "hermes-studio",
       packageJSON: {
         name: "hermes-studio",
-        version: "0.6.3",
+        version: "0.6.4",
       },
     },
   };
