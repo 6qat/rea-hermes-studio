@@ -1,16 +1,11 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from "vitest";
-import fs from "node:fs";
-import path from "node:path";
-import { THEME_BRIDGE_CSS } from "../src/webview/theme-bridge";
+import { THEME_BRIDGE_CSS, HERMES_WEBVIEW_BASE_CSS } from "../src/webview/theme-bridge";
 import { mountHermesWebview, extractDroppedFileUris } from "../src/webview/webview-mount";
 
 describe("Theme Bridge CSS coverage", () => {
   it("maps every --vscode-* variable referenced in webview-base.css with dark theme defaults", () => {
-    const baseCss = fs.readFileSync(
-      path.resolve(__dirname, "../assets/webview-base.css"),
-      "utf8",
-    );
+    const baseCss = HERMES_WEBVIEW_BASE_CSS;
     const matches = baseCss.match(/--vscode-[a-zA-Z0-9-]+/g) ?? [];
     const uniqueVars = [...new Set(matches)].sort();
     expect(uniqueVars.length).toBeGreaterThan(25);

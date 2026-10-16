@@ -1,29 +1,31 @@
 /* Obsidian Hermes Studio — Host Workspace Styles */
 
-.workspace-leaf-content[data-type="hermes-studio-side-view"] .view-content,
-.workspace-leaf-content[data-type="hermes-studio-editor-view"] .view-content,
-.workspace-leaf-content[data-type="hermes-studio-diff-view"] .view-content,
-.hermes-studio-view-content {
+body .workspace .workspace-leaf-content[data-type="hermes-studio-side-view"] > .view-content,
+body .workspace .workspace-leaf-content[data-type="hermes-studio-editor-view"] > .view-content,
+body .workspace .workspace-leaf-content[data-type="hermes-studio-diff-view"] > .view-content,
+body .workspace .workspace-leaf-content > .view-content.hermes-studio-view-content,
+body .workspace .hermes-studio-view-content {
   padding: 0;
-  margin: 0 !important;
-  overflow: hidden !important;
+  margin: 0;
+  overflow: hidden;
   height: 100%;
   width: 100%;
-  box-sizing: border-box !important;
+  box-sizing: border-box;
   background: var(--background-secondary, #0f172a);
 }
 
 /* Status-bar safe area when docked in Obsidian's right sidebar:
    Prevents Obsidian's fixed bottom-right .status-bar from obstructing
    the Hermes Studio chat input panel and action buttons. */
-.mod-right-split .workspace-leaf-content[data-type="hermes-studio-side-view"] .view-content,
-.mod-right-split .hermes-studio-view-content {
-  padding-bottom: var(--hermes-status-bar-padding, 14px) !important;
-  box-sizing: border-box !important;
+body .workspace .mod-right-split .workspace-leaf-content[data-type="hermes-studio-side-view"] > .view-content,
+body .workspace .mod-right-split .workspace-leaf-content > .view-content.hermes-studio-view-content,
+body .workspace .mod-right-split .hermes-studio-view-content {
+  padding-bottom: var(--hermes-status-bar-padding, 14px);
+  box-sizing: border-box;
 }
 
-.workspace-leaf-content[data-type="hermes-studio-editor-view"] .view-content,
-.workspace-leaf-content[data-type="hermes-studio-diff-view"] .view-content {
+body .workspace .workspace-leaf-content[data-type="hermes-studio-editor-view"] > .view-content,
+body .workspace .workspace-leaf-content[data-type="hermes-studio-diff-view"] > .view-content {
   background: var(--background-primary, #0b0f19);
 }
 

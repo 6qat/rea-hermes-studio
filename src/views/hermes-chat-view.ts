@@ -74,7 +74,39 @@ export class HermesStudioView extends ItemView {
     this.mounted = mountHermesWebview({
       shadowRoot,
       place: this.place,
-      onMessageFromWebview: (msg) => {
+      onMessageFromWebview: async (msg) => {
+        if (msg?.type === "checkPaths" && Array.isArray(msg.paths)) {
+          const known: Record<string, boolean> = {};
+          for (const p of msg.paths) {
+            if (typeof p === "string") {
+              known[p] = this.plugin.isVaultPathKnown(p);
+            }
+          }
+          this.mounted?.postMessageToWebview({ type: "paths", known });
+          this.receiveEmitter.fire(msg);
+          return;
+        }
+
+        if (msg?.type === "openFile" && msg.path) {
+          const opened = await this.plugin.openVaultFile(
+            msg.path,
+            msg.line ? { startLine: msg.line, endLine: msg.line } : undefined,
+          );
+          if (opened) return;
+        }
+
+        if (msg?.type === "openLink" && msg.href) {
+          if (
+            msg.href.startsWith("obsidian://") ||
+            msg.href.startsWith("file://") ||
+            msg.href.startsWith("wikilink://") ||
+            !/^[a-z]+:\/\//i.test(msg.href)
+          ) {
+            const opened = await this.plugin.openVaultFile(msg.href);
+            if (opened) return;
+          }
+        }
+
         this.receiveEmitter.fire(msg);
       },
       getState: () => this.plugin.settings.webviewState,

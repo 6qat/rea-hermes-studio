@@ -15,15 +15,36 @@ describe("HermesStudioPlugin lifecycle & views", () => {
     const tmpVault = fs.mkdtempSync(path.join(os.tmpdir(), "hermes-plugin-test-"));
     const adapter = new (FileSystemAdapter as any)(tmpVault);
 
+    const openedFiles: any[] = [];
     const mockApp: any = {
       vault: {
         adapter,
         getName: () => "PluginTestVault",
-        getFiles: () => [],
-        getMarkdownFiles: () => [],
+        getFiles: () => [
+          { name: "Meus Documentos.md", basename: "Meus Documentos", path: "Meus Documentos.md" },
+          { name: "identidade-1.jpg", basename: "identidade-1", path: "attachments/identidade-1.jpg" },
+        ],
+        getMarkdownFiles: () => [
+          { name: "Meus Documentos.md", basename: "Meus Documentos", path: "Meus Documentos.md" },
+        ],
+        getAbstractFileByPath: (p: string) => {
+          if (p === "Meus Documentos.md")
+            return { name: "Meus Documentos.md", path: "Meus Documentos.md" };
+          if (p === "attachments/identidade-1.jpg")
+            return { name: "identidade-1.jpg", path: "attachments/identidade-1.jpg" };
+          if (p === "attachments")
+            return { name: "attachments", path: "attachments" };
+          return null;
+        },
       },
       metadataCache: {
-        getFirstLinkpathDest: () => null,
+        getFirstLinkpathDest: (p: string) => {
+          if (p === "Meus Documentos.md" || p === "Meus Documentos")
+            return { name: "Meus Documentos.md", path: "Meus Documentos.md" };
+          if (p === "identidade-1.jpg")
+            return { name: "identidade-1.jpg", path: "attachments/identidade-1.jpg" };
+          return null;
+        },
         unresolvedLinks: {},
       },
       workspace: {
@@ -34,6 +55,9 @@ describe("HermesStudioPlugin lifecycle & views", () => {
         }),
         getLeaf: () => ({
           setViewState: async () => {},
+          openFile: async (file: any) => {
+            openedFiles.push(file);
+          },
         }),
         revealLeaf: async () => {},
         getActiveViewOfType: () => null,
@@ -47,7 +71,7 @@ describe("HermesStudioPlugin lifecycle & views", () => {
     const plugin = new HermesStudioPlugin(mockApp, {
       id: "hermes-studio",
       name: "Hermes Studio",
-      version: "0.6.5",
+      version: "0.6.6",
       dir: tmpVault,
     } as any);
 
@@ -90,6 +114,21 @@ describe("HermesStudioPlugin lifecycle & views", () => {
     });
     expect(diffView.contentEl.textContent).toContain("Notes/Idea.md (Hermes Edit)");
     expect(diffView.contentEl.textContent).toContain("Added paragraph");
+
+    // 3. Verify vault document detection and opening
+    expect(plugin.isVaultPathKnown("Meus Documentos.md")).toBe(true);
+    expect(plugin.isVaultPathKnown("Meus Documentos")).toBe(true);
+    expect(plugin.isVaultPathKnown("identidade-1.jpg")).toBe(true);
+    expect(plugin.isVaultPathKnown("attachments/")).toBe(true);
+    expect(plugin.isVaultPathKnown("nonexistent-document.pdf")).toBe(false);
+
+    const opened1 = await plugin.openVaultFile("Meus Documentos.md");
+    expect(opened1).toBe(true);
+    expect(openedFiles.some((f) => f.name === "Meus Documentos.md")).toBe(true);
+
+    const opened2 = await plugin.openVaultFile("identidade-1.jpg");
+    expect(opened2).toBe(true);
+    expect(openedFiles.some((f) => f.name === "identidade-1.jpg")).toBe(true);
 
     await sideView.onClose();
     sideView.containerEl.remove();

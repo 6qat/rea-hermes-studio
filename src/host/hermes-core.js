@@ -34857,7 +34857,8 @@ var K4 = KT(BT),
 var QT, cb;
 function ub(t) {
   try {
-    return (0, XT.statSync)(t).isFile();
+    let s = (0, XT.statSync)(t);
+    return s.isFile() || s.isDirectory();
   } catch {
     return !1;
   }
@@ -35391,6 +35392,14 @@ async function Y4(t, e, r) {
   let i = K.workspace.workspaceFolders?.[0]?.uri.fsPath,
     n = (0, ui.isAbsolute)(t) ? t : i ? (0, ui.resolve)(i, t) : void 0;
   if (!n || !ub(n)) {
+    try {
+      let o = e ? new K.Position(e - 1, 0) : void 0;
+      await K.window.showTextDocument(K.Uri.file(n || t), {
+        preview: !0,
+        ...(o ? { selection: new K.Range(o, o) } : {}),
+      });
+      return;
+    } catch {}
     r("[ext] ignored a link to a file that does not exist");
     return;
   }

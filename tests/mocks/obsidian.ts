@@ -191,7 +191,14 @@ export class MarkdownView {}
 export class TFile {
   path = "";
   basename = "";
+  name = "";
   extension = "md";
+}
+
+export class TFolder {
+  path = "";
+  name = "";
+  children: any[] = [];
 }
 
 export function addIcon(_id: string, _svg: string): void {}

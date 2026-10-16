@@ -1,7 +1,6 @@
-import baseCss from "../../assets/webview-base.css";
+import { HERMES_WEBVIEW_BASE_CSS } from "./webview-base-css";
 
-export const HERMES_WEBVIEW_BASE_CSS: string =
-  typeof baseCss === "string" ? baseCss : "";
+export { HERMES_WEBVIEW_BASE_CSS };
 
 /**
  * Maps every --vscode-* variable referenced in Hermes Studio's Tailwind v4

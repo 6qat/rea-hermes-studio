@@ -15899,17 +15899,22 @@ function Tg(e) {
   if (
     t.length < 2 ||
     t.length > 300 ||
-    /\s/.test(t) ||
+    /[\r\n]/.test(t) ||
     /^[a-z][a-z0-9+.-]*:\/\//i.test(t)
   )
     return;
+  if (/[,"*?<>|]/.test(t)) return;
   let n = /^(.*?)(?::(\d{1,7})(?::\d{1,5})?)?$/.exec(t),
-    r = n?.[1] ?? t,
-    i = n?.[2] ? Number(n[2]) : void 0,
-    a = r.split(/[\\/]/).pop() ?? ``,
-    o = /[\\/]/.test(r) && a.length > 0,
-    s = /^[^.].*\.[A-Za-z0-9]*[A-Za-z][A-Za-z0-9]*$/.test(a);
-  if (o || s) return i && i > 0 ? { path: r, line: i } : { path: r };
+    r = (n?.[1] ?? t).trim(),
+    i = n?.[2] ? Number(n[2]) : void 0;
+  if (r.startsWith("[[") && r.endsWith("]]")) {
+    r = r.slice(2, -2).trim();
+  }
+  let a = r.replace(/[\\/]+$/, "").split(/[\\/]/).pop() ?? ``,
+    o = /[\\/]/.test(r) && r.length > 0,
+    s = /^[^.].*\.[A-Za-z0-9]{1,10}$/.test(a),
+    hasSpace = r.includes(" ") && !/[;{}()[\]\\~`!@#$%^&=+—]/.test(r);
+  if (o || s || hasSpace) return i && i > 0 ? { path: r, line: i } : { path: r };
 }
 function Eg(e) {
   let t = new Map();
@@ -16050,7 +16055,16 @@ var Mg,
         #e = new Map();
         #t = `{}`;
         render(e) {
-          let t = Ng.lexer(e),
+          let text = e;
+          if (typeof text === "string" && text.includes("[[")) {
+            text = text.replace(/`[^`\n]+`|```[\s\S]*?```|\[\[([^\]\n|]+)(?:\|([^\]\n]+))?\]\]/g, (match, target, label) => {
+              if (!target) return match;
+              let cleanTarget = target.trim();
+              let cleanLabel = (label ?? target).trim();
+              return `[${cleanLabel}](wikilink://${encodeURIComponent(cleanTarget)})`;
+            });
+          }
+          let t = Ng.lexer(text),
             n = JSON.stringify(t.links);
           n !== this.#t && (this.#e.clear(), (this.#t = n));
           let r = [],
@@ -17354,10 +17368,14 @@ function J_(e, t) {
                                   `ctx-chip pr-[7px]`,
                                   H(t).kind === `skill`
                                     ? `ctx-chip-skill`
-                                    : `text-muted`,
+                                    : `text-muted cursor-pointer hover:underline`,
                                 ]),
                               ),
                                 q(i, H(t).label));
+                            }),
+                            W(`click`, n, () => {
+                              let p = H(t).path ?? H(t).label;
+                              if (p) _(p);
                             }),
                             K(e, n));
                         };

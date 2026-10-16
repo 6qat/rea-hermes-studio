@@ -115,7 +115,7 @@ describe("Hermes Core Host <-> Shadow DOM Svelte 5 Webview Integration", () => {
 
     // Verify mentioning a file adds a context chip
     webviewReceiveCallback?.({ type: "mentionFile", path: "Architecture.md" });
-    await new Promise((r) => setTimeout(r, 40));
+    await new Promise((r) => setTimeout(r, 120));
 
     const ctxMsgs = hostToWebviewMessages.filter((m) => m.type === "context");
     const lastCtx = ctxMsgs.at(-1);

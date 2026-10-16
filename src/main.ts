@@ -5,6 +5,7 @@ import {
   MarkdownView,
   Plugin,
   TFile,
+  TFolder,
   WorkspaceLeaf,
 } from "obsidian";
 import {
@@ -366,31 +367,222 @@ export default class HermesStudioPlugin extends Plugin {
     return out;
   }
 
-  private async openVaultFile(
-    absPath: string,
-    selection?: { startLine: number; endLine: number },
-  ): Promise<void> {
-    const base = this.getVaultBasePath();
-    const rel = path.relative(base, absPath).replace(/\\/g, "/");
-    if (rel.startsWith("..")) return;
+  public isVaultPathKnown(targetPath: string): boolean {
+    if (!targetPath || typeof targetPath !== "string") return false;
+    let clean = targetPath.trim();
+    if (clean.startsWith("[[") && clean.endsWith("]]")) {
+      clean = clean.slice(2, -2).trim();
+    }
+    const withoutSlash = clean.replace(/[\\/]+$/, "");
 
-    const abstractFile = (this.app.vault as any).getAbstractFileByPath?.(rel);
-    const leaf = this.app.workspace.getLeaf("tab");
-    if (abstractFile && leaf && typeof (leaf as any).openFile === "function") {
-      await (leaf as any).openFile(abstractFile);
-      if (selection) {
-        const view = (leaf as any).view;
-        const editor = view?.editor;
-        if (editor) {
-          const line = Math.max(0, selection.startLine - 1);
-          editor.setCursor?.({ line, ch: 0 });
-          editor.scrollIntoView?.(
-            { from: { line, ch: 0 }, to: { line, ch: 0 } },
-            true,
-          );
+    // 1. Vault relative path
+    if (this.app?.vault?.getAbstractFileByPath?.(clean)) return true;
+    if (withoutSlash && this.app?.vault?.getAbstractFileByPath?.(withoutSlash)) return true;
+
+    // 2. Absolute path on disk
+    if (path.isAbsolute(clean)) {
+      try {
+        if (fs.existsSync(clean)) return true;
+      } catch {}
+      const base = this.getVaultBasePath();
+      const rel = path.relative(base, clean).replace(/\\/g, "/");
+      if (!rel.startsWith("..") && this.app?.vault?.getAbstractFileByPath?.(rel)) return true;
+    }
+
+    // 3. Relative to base on disk
+    try {
+      const base = this.getVaultBasePath();
+      if (fs.existsSync(path.resolve(base, clean))) return true;
+      if (withoutSlash && fs.existsSync(path.resolve(base, withoutSlash))) return true;
+    } catch {}
+
+    // 4. MetadataCache link destination
+    if (this.app?.metadataCache?.getFirstLinkpathDest?.(clean, "")) return true;
+    if (withoutSlash && this.app?.metadataCache?.getFirstLinkpathDest?.(withoutSlash, "")) return true;
+
+    // 5. Match by file name, basename, or path across vault files
+    const lower = clean.toLowerCase();
+    const lowerNoSlash = withoutSlash.toLowerCase();
+    const allFiles: TFile[] = this.app?.vault?.getFiles?.() ?? [];
+    const match = allFiles.some((f) => {
+      const fn = f.name?.toLowerCase?.() ?? "";
+      const bn = f.basename?.toLowerCase?.() ?? "";
+      const fp = f.path?.toLowerCase?.() ?? "";
+      return (
+        fn === lower ||
+        bn === lower ||
+        fp === lower ||
+        fn === lowerNoSlash ||
+        bn === lowerNoSlash ||
+        fp === lowerNoSlash ||
+        fp === `${lower}.md` ||
+        fp === `${lowerNoSlash}.md`
+      );
+    });
+    if (match) return true;
+
+    // 6. Match folders
+    const allLoaded = (this.app?.vault as any)?.getAllLoadedFiles?.() ?? [];
+    const folderMatch = allLoaded.some((f: any) => {
+      if (!f || f instanceof TFile) return false;
+      const fp = (f.path ?? "").toLowerCase();
+      return fp === lower || fp === lowerNoSlash;
+    });
+    if (folderMatch) return true;
+
+    return false;
+  }
+
+  public async openVaultFile(
+    filePathOrLink: string,
+    selection?: { startLine: number; endLine: number },
+  ): Promise<boolean> {
+    if (!filePathOrLink || typeof filePathOrLink !== "string") return false;
+
+    let target = filePathOrLink.trim();
+
+    // 1. Decode specialized URIs
+    if (target.startsWith("wikilink://")) {
+      target = decodeURIComponent(target.slice("wikilink://".length)).trim();
+    } else if (target.startsWith("file://")) {
+      try {
+        target = decodeURIComponent(new URL(target).pathname);
+      } catch {
+        target = target.slice("file://".length);
+      }
+    } else if (target.startsWith("obsidian://open?")) {
+      try {
+        const url = new URL(target);
+        const fileParam = url.searchParams.get("file");
+        if (fileParam) target = decodeURIComponent(fileParam).trim();
+      } catch {}
+    }
+
+    if (target.startsWith("[[") && target.endsWith("]]")) {
+      target = target.slice(2, -2).trim();
+    }
+
+    // 2. Parse inline line numbers if not explicitly provided
+    if (!selection) {
+      const lineMatch = /^(.*?):(\d+)(?::\d+)?$/.exec(target);
+      if (lineMatch && lineMatch[1] && lineMatch[2]) {
+        target = lineMatch[1].trim();
+        const l = parseInt(lineMatch[2], 10);
+        if (l > 0) selection = { startLine: l, endLine: l };
+      }
+    }
+
+    const cleanTarget = target.replace(/[\\/]+$/, "");
+    const base = this.getVaultBasePath();
+
+    let abstractFile: any = null;
+
+    // 3. Check absolute path on disk
+    if (path.isAbsolute(target)) {
+      const rel = path.relative(base, target).replace(/\\/g, "/");
+      if (!rel.startsWith("..")) {
+        abstractFile = this.app?.vault?.getAbstractFileByPath?.(rel);
+        if (!abstractFile && cleanTarget) {
+          const cleanRel = path.relative(base, cleanTarget).replace(/\\/g, "/");
+          abstractFile = this.app?.vault?.getAbstractFileByPath?.(cleanRel);
         }
       }
     }
+
+    // 4. Check relative path in vault
+    if (!abstractFile) {
+      abstractFile = this.app?.vault?.getAbstractFileByPath?.(target);
+    }
+    if (!abstractFile && cleanTarget) {
+      abstractFile = this.app?.vault?.getAbstractFileByPath?.(cleanTarget);
+    }
+
+    // 5. Check metadataCache destination
+    if (!abstractFile) {
+      abstractFile =
+        this.app?.metadataCache?.getFirstLinkpathDest?.(cleanTarget || target, "") ??
+        null;
+    }
+
+    // 6. Match against vault files by name or basename
+    if (!abstractFile) {
+      const allFiles: TFile[] = this.app?.vault?.getFiles?.() ?? [];
+      const lower = (cleanTarget || target).toLowerCase();
+      const matchedFile = allFiles.find((f) => {
+        const fn = f.name?.toLowerCase?.() ?? "";
+        const bn = f.basename?.toLowerCase?.() ?? "";
+        const fp = f.path?.toLowerCase?.() ?? "";
+        return (
+          fn === lower ||
+          bn === lower ||
+          fp === lower ||
+          fp === `${lower}.md`
+        );
+      });
+      if (matchedFile) {
+        abstractFile = matchedFile;
+      }
+    }
+
+    // 7. Match against vault folders
+    if (!abstractFile) {
+      const allLoaded = (this.app?.vault as any)?.getAllLoadedFiles?.() ?? [];
+      const lower = (cleanTarget || target).toLowerCase();
+      const matchedFolder = allLoaded.find((f: any) => {
+        if (!f || f instanceof TFile) return false;
+        const fp = (f.path ?? "").toLowerCase();
+        return fp === lower;
+      });
+      if (matchedFolder) {
+        abstractFile = matchedFolder;
+      }
+    }
+
+    // 8. Open or reveal in Obsidian
+    if (abstractFile) {
+      // If it's a folder, reveal in file explorer
+      const isFolder =
+        (typeof TFolder !== "undefined" && abstractFile instanceof TFolder) ||
+        (Boolean((abstractFile as any)?.children) && !(abstractFile as any)?.extension);
+      if (isFolder) {
+        const leaves = this.app?.workspace?.getLeavesOfType?.("file-explorer") ?? [];
+        if (leaves.length > 0 && leaves[0]?.view) {
+          (leaves[0].view as any).revealInFolder?.(abstractFile);
+        }
+        return true;
+      }
+
+      // If it's a file, open in a leaf
+      const leaf =
+        this.app?.workspace?.getLeaf?.("tab") ??
+        this.app?.workspace?.getLeaf?.(false);
+      if (leaf && typeof (leaf as any).openFile === "function") {
+        await (leaf as any).openFile(abstractFile);
+        if (selection) {
+          const view = (leaf as any).view;
+          const editor = view?.editor;
+          if (editor) {
+            const line = Math.max(0, selection.startLine - 1);
+            editor.setCursor?.({ line, ch: 0 });
+            editor.scrollIntoView?.(
+              { from: { line, ch: 0 }, to: { line, ch: 0 } },
+              true,
+            );
+          }
+        }
+        return true;
+      }
+    }
+
+    // 9. Fallback: try openLinkText
+    if (this.app?.workspace?.openLinkText) {
+      try {
+        await this.app.workspace.openLinkText(cleanTarget || target, "", "tab");
+        return true;
+      } catch {}
+    }
+
+    return false;
   }
 
   private refreshTrackerFromWorkspace(): void {
