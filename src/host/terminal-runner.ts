@@ -1,0 +1,74 @@
+import childProcess from "node:child_process";
+
+export interface TerminalSpawnOptions {
+  name: string;
+  cwd?: string;
+  shellPath: string;
+  shellArgs?: string[];
+  env?: Record<string, string | undefined>;
+  onClose?: () => void;
+}
+
+const LINUX_TERMINALS: Array<{ bin: string; args: (cmd: string[]) => string[] }> = [
+  { bin: "x-terminal-emulator", args: (cmd) => ["-e", ...cmd] },
+  { bin: "kitty", args: (cmd) => ["--", ...cmd] },
+  { bin: "alacritty", args: (cmd) => ["-e", ...cmd] },
+  { bin: "wezterm", args: (cmd) => ["start", "--", ...cmd] },
+  { bin: "gnome-terminal", args: (cmd) => ["--", ...cmd] },
+  { bin: "konsole", args: (cmd) => ["-e", ...cmd] },
+  { bin: "xfce4-terminal", args: (cmd) => ["-x", ...cmd] },
+  { bin: "xterm", args: (cmd) => ["-e", ...cmd] },
+];
+
+function commandExists(bin: string): boolean {
+  try {
+    const res = childProcess.spawnSync("which", [bin], { stdio: "ignore" });
+    return res.status === 0;
+  } catch {
+    return false;
+  }
+}
+
+export function launchExternalTerminal(opts: TerminalSpawnOptions): {
+  show: () => void;
+  dispose: () => void;
+} {
+  const fullCmd = [opts.shellPath, ...(opts.shellArgs ?? [])];
+  let child: childProcess.ChildProcess | undefined;
+
+  if (process.platform === "linux") {
+    const found = LINUX_TERMINALS.find((t) => commandExists(t.bin));
+    if (found) {
+      child = childProcess.spawn(found.bin, found.args(fullCmd), {
+        cwd: opts.cwd,
+        env: { ...process.env, ...opts.env } as NodeJS.ProcessEnv,
+        detached: true,
+        stdio: "ignore",
+      });
+      child.on("exit", () => opts.onClose?.());
+      child.unref();
+    }
+  } else if (process.platform === "darwin") {
+    const escaped = fullCmd.map((a) => `'${a.replace(/'/g, "'\\''")}'`).join(" ");
+    child = childProcess.spawn(
+      "osascript",
+      [
+        "-e",
+        `tell application "Terminal" to do script "${escaped.replace(/"/g, '\\"')}"`,
+        "-e",
+        `tell application "Terminal" to activate`,
+      ],
+      { cwd: opts.cwd, stdio: "ignore" },
+    );
+    child.on("exit", () => opts.onClose?.());
+  }
+
+  return {
+    show() {},
+    dispose() {
+      try {
+        child?.kill();
+      } catch {}
+    },
+  };
+}
