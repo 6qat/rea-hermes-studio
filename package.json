@@ -3,6 +3,7 @@
   "version": "0.6.1",
   "private": true,
   "description": "Hermes Studio plugin for Obsidian — full feature and visual parity with VSCode Hermes Studio",
+  "author": "Guilherme Ceschiatti (6qat)",
   "scripts": {
     "build": "node esbuild.config.mjs production",
     "dev": "node esbuild.config.mjs",
