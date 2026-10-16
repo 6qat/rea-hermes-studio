@@ -111,25 +111,29 @@ src/
 
 ## 🧪 Testing
 
-Comprehensive test suites verify the host API shim, note tracking, diff generation, and WikiLink resolution:
+Comprehensive test suites verify the host API shim, vault and adapter compliance, note tracking, diff generation, and WikiLink resolution:
 
 ```bash
 npm test
 ```
 
-All 10 tests across all 4 suites are automated with Vitest.
+All 11 tests across all test suites are automated with Vitest.
 
 ---
 
 ## 🔒 Security & System Permissions
 
-Hermes Studio is configured with `"isDesktopOnly": true` and adheres to Obsidian's Developer Policies. Because it functions as an interactive pair-programmer and agent workbench, it utilizes standard desktop APIs for the following specific purposes:
+Hermes Studio is configured with `"isDesktopOnly": true` and adheres strictly to Obsidian's Developer Policies:
 
+- **Obsidian Vault & DataAdapter APIs (`app.vault` & `app.vault.adapter`)**:
+  - **All vault file interactions** (reading note contents, listing files, tracking note creation/modification/deletion events, resolving WikiLinks, and displaying diffs) are executed through Obsidian's official `Vault` and `DataAdapter` APIs. This preserves Obsidian's in-memory caching, atomic write safety, and full compatibility with Obsidian Sync.
 - **Child Process Execution (`child_process`)**:
-  - Used exclusively to run the local `hermes` CLI binary (`hermes acp`) and communicate with the local agent daemon over standard input/output (`stdio`).
-  - No unexpected external binaries or remote shell scripts are executed.
-- **Direct Filesystem Access (`fs`)**:
-  - Used to read and apply user-approved code/markdown changes when accepting diff proposals in the unified diff viewer, and to persist local workspace session caches in the vault.
+  - **Hermes Agent CLI (`hermes acp`)**: Spawns the local `hermes` CLI binary via `child_process.spawn()` to communicate with the local agent daemon over standard input/output (`stdio`) via the Agent Client Protocol (ACP). The CLI path is user-configurable in plugin settings (`hermesStudio.path`).
+  - **Git Diff Inspection (`git diff`)**: Spawns `git` via `child_process.spawnSync()` exclusively with fixed argument arrays (`["diff"]` or `["diff", "--cached"]`) inside Git-versioned vaults to display unified diff proposals.
+  - **Interactive Terminal Launches**: Spawns the user's preferred desktop terminal emulator (e.g. `gnome-terminal`, `kitty`, `alacritty`, `Terminal.app`) passing discrete command arguments strictly when the user requests interactive model setup (`hermes model`) or memory review (`hermes /memory`).
+  - **Command Injection Prevention**: All process executions pass discrete string argument arrays (`args: string[]`) directly to executables without shell interpretation (`shell: false`). No unvalidated shell strings or remote shell scripts are ever executed.
+- **External Filesystem Access (`fs` / `fs/promises`)**:
+  - **Scoped strictly outside the Obsidian vault**: Direct filesystem access via Node.js `fs` is used solely to interact with the external Hermes Agent configuration, memories, and skills located in the user's home directory (`~/.hermes/` or `$HERMES_HOME`), and to verify the path of the local `hermes` CLI binary. No vault files are modified or read using raw `node:fs`.
 - **Clipboard Access (`navigator.clipboard`)**:
   - Used exclusively when the user clicks the "Copy" action button on AI chat responses, code blocks, or prompt templates.
 

@@ -17,6 +17,10 @@ export interface HermesSettingsValues {
 export interface ObsidianShimDependencies {
   vaultBasePath: string;
   vaultName: string;
+  app?: any;
+  vault?: any;
+  adapter?: any;
+  hasGit?: () => boolean;
   getSettings: () => HermesSettingsValues;
   updateSetting?: (key: keyof HermesSettingsValues, value: any) => Promise<void>;
   resolveWikiLink?: (linkpath: string) => string | undefined;
@@ -40,7 +44,7 @@ export interface ObsidianShimDependencies {
     leftUri: SimpleUri;
     rightUri: SimpleUri;
     title: string;
-    readContent: (uri: SimpleUri) => string | undefined;
+    readContent: (uri: SimpleUri) => string | Promise<string | undefined> | undefined;
   }) => Promise<void>;
   openPluginSettings?: () => void;
   showNotice?: (
@@ -209,32 +213,16 @@ export class SimpleUri {
   }
 }
 
-function walkVaultFilesSync(rootDir: string, maxResults = 5000): string[] {
-  const results: string[] = [];
-  const ignored = new Set([".git", "node_modules", ".obsidian", ".trash"]);
+export function isInsideVault(targetPath: string, vaultBasePath: string): boolean {
+  if (!vaultBasePath || !targetPath) return false;
+  const rel = path.relative(vaultBasePath, targetPath);
+  return !rel.startsWith("..") && !path.isAbsolute(rel);
+}
 
-  function visit(dir: string) {
-    if (results.length >= maxResults) return;
-    let entries: fs.Dirent[];
-    try {
-      entries = fs.readdirSync(dir, { withFileTypes: true });
-    } catch {
-      return;
-    }
-    for (const entry of entries) {
-      if (results.length >= maxResults) break;
-      if (ignored.has(entry.name)) continue;
-      const full = path.join(dir, entry.name);
-      if (entry.isDirectory()) {
-        visit(full);
-      } else if (entry.isFile()) {
-        results.push(full);
-      }
-    }
-  }
-
-  visit(rootDir);
-  return results;
+export function toVaultRelativePath(targetPath: string, vaultBasePath: string): string {
+  if (!vaultBasePath || !targetPath) return targetPath;
+  const rel = path.relative(vaultBasePath, targetPath).replace(/\\/g, "/");
+  return rel.replace(/^\/+/g, "");
 }
 
 export function createObsidianVscodeShim(deps: ObsidianShimDependencies) {
@@ -262,13 +250,25 @@ export function createObsidianVscodeShim(deps: ObsidianShimDependencies) {
       const fileParam = parsed.searchParams.get("file") || parsed.searchParams.get("path");
       if (fileParam) {
         const decoded = decodeURIComponent(fileParam);
-        const withExt =
-          path.extname(decoded) ||
-          fs.existsSync(path.join(deps.vaultBasePath, decoded))
-            ? decoded
-            : fs.existsSync(path.join(deps.vaultBasePath, `${decoded}.md`))
-              ? `${decoded}.md`
-              : deps.resolveWikiLink?.(decoded) ?? decoded;
+        let withExt = decoded;
+        if (!path.extname(decoded)) {
+          if (deps.vault?.getAbstractFileByPath?.(decoded)) {
+            withExt = decoded;
+          } else if (deps.vault?.getAbstractFileByPath?.(`${decoded}.md`)) {
+            withExt = `${decoded}.md`;
+          } else {
+            const resolved = deps.resolveWikiLink?.(decoded);
+            if (resolved) {
+              withExt = resolved;
+            } else if (fs.existsSync(path.join(deps.vaultBasePath, decoded))) {
+              withExt = decoded;
+            } else if (fs.existsSync(path.join(deps.vaultBasePath, `${decoded}.md`))) {
+              withExt = `${decoded}.md`;
+            } else {
+              withExt = `${decoded}.md`;
+            }
+          }
+        }
         return SimpleUri.file(path.join(deps.vaultBasePath, withExt));
       }
     }
@@ -276,11 +276,18 @@ export function createObsidianVscodeShim(deps: ObsidianShimDependencies) {
     // 2. Handle wikilink://NoteName
     if (value.startsWith("wikilink://")) {
       const rawTarget = decodeURIComponent(value.slice("wikilink://".length)).trim();
-      const resolvedRel =
-        deps.resolveWikiLink?.(rawTarget) ??
-        (fs.existsSync(path.join(deps.vaultBasePath, `${rawTarget}.md`))
-          ? `${rawTarget}.md`
-          : rawTarget);
+      let resolvedRel = deps.resolveWikiLink?.(rawTarget);
+      if (!resolvedRel) {
+        if (deps.vault?.getAbstractFileByPath?.(`${rawTarget}.md`)) {
+          resolvedRel = `${rawTarget}.md`;
+        } else if (deps.vault?.getAbstractFileByPath?.(rawTarget)) {
+          resolvedRel = rawTarget;
+        } else if (fs.existsSync(path.join(deps.vaultBasePath, `${rawTarget}.md`))) {
+          resolvedRel = `${rawTarget}.md`;
+        } else {
+          resolvedRel = rawTarget;
+        }
+      }
       return SimpleUri.file(path.join(deps.vaultBasePath, resolvedRel));
     }
 
@@ -503,9 +510,20 @@ export function createObsidianVscodeShim(deps: ObsidianShimDependencies) {
           .slice(0, maxResults)
           .map((rel) => SimpleUri.file(path.join(deps.vaultBasePath, rel)));
       }
-      return walkVaultFilesSync(deps.vaultBasePath, maxResults).map((p) =>
-        SimpleUri.file(p),
-      );
+      if (deps.vault?.getFiles) {
+        return (deps.vault.getFiles() as any[])
+          .slice(0, maxResults)
+          .map((f) => SimpleUri.file(path.join(deps.vaultBasePath, f.path)));
+      }
+      if (deps.adapter?.list) {
+        try {
+          const res = await deps.adapter.list("");
+          return (res.files ?? [])
+            .slice(0, maxResults)
+            .map((rel: string) => SimpleUri.file(path.join(deps.vaultBasePath, rel)));
+        } catch {}
+      }
+      return [];
     },
     createFileSystemWatcher(globPattern: RelativePattern | string) {
       const onChange = new SimpleEventEmitter<SimpleUri>();
@@ -517,6 +535,50 @@ export function createObsidianVscodeShim(deps: ObsidianShimDependencies) {
           : typeof globPattern.baseUri === "string"
             ? globPattern.baseUri
             : globPattern.baseUri.fsPath;
+
+      // Prefer native Obsidian Vault event emitter if watching the vault
+      if (deps.vault?.on && isInsideVault(baseDir, deps.vaultBasePath)) {
+        const handleCreate = (file: any) => {
+          if (!file?.path) return;
+          onCreate.fire(SimpleUri.file(path.join(deps.vaultBasePath, file.path)));
+        };
+        const handleModify = (file: any) => {
+          if (!file?.path) return;
+          onChange.fire(SimpleUri.file(path.join(deps.vaultBasePath, file.path)));
+        };
+        const handleDelete = (file: any) => {
+          if (!file?.path) return;
+          onDelete.fire(SimpleUri.file(path.join(deps.vaultBasePath, file.path)));
+        };
+        const handleRename = (file: any, oldPath: string) => {
+          if (oldPath) {
+            onDelete.fire(SimpleUri.file(path.join(deps.vaultBasePath, oldPath)));
+          }
+          if (file?.path) {
+            onCreate.fire(SimpleUri.file(path.join(deps.vaultBasePath, file.path)));
+          }
+        };
+
+        const refCreate = deps.vault.on("create", handleCreate);
+        const refModify = deps.vault.on("modify", handleModify);
+        const refDelete = deps.vault.on("delete", handleDelete);
+        const refRename = deps.vault.on("rename", handleRename);
+
+        return {
+          onDidChange: onChange.event,
+          onDidCreate: onCreate.event,
+          onDidDelete: onDelete.event,
+          dispose() {
+            try { deps.vault.offref?.(refCreate); } catch {}
+            try { deps.vault.offref?.(refModify); } catch {}
+            try { deps.vault.offref?.(refDelete); } catch {}
+            try { deps.vault.offref?.(refRename); } catch {}
+            onChange.dispose();
+            onCreate.dispose();
+            onDelete.dispose();
+          },
+        };
+      }
 
       let watcher: fs.FSWatcher | undefined;
       try {
@@ -566,7 +628,27 @@ export function createObsidianVscodeShim(deps: ObsidianShimDependencies) {
         typeof uriOrPath === "string" ? SimpleUri.file(uriOrPath) : uriOrPath;
       let content = "";
       if (uri.scheme === "file") {
-        content = await fsp.readFile(uri.fsPath, "utf8").catch(() => "");
+        if (isInsideVault(uri.fsPath, deps.vaultBasePath)) {
+          const relPath = toVaultRelativePath(uri.fsPath, deps.vaultBasePath);
+          if (deps.vault?.getAbstractFileByPath && deps.vault?.read) {
+            const file = deps.vault.getAbstractFileByPath(relPath);
+            if (file) {
+              try {
+                content = await deps.vault.read(file);
+              } catch {}
+            }
+          }
+          if (!content && deps.adapter?.read) {
+            try {
+              content = await deps.adapter.read(relPath);
+            } catch {}
+          }
+          if (!content && !deps.vault && !deps.adapter) {
+            content = await fsp.readFile(uri.fsPath, "utf8").catch(() => "");
+          }
+        } else {
+          content = await fsp.readFile(uri.fsPath, "utf8").catch(() => "");
+        }
       } else {
         const provider = contentProviders.get(uri.scheme);
         content = provider?.provideTextDocumentContent(uri) ?? "";
@@ -580,6 +662,37 @@ export function createObsidianVscodeShim(deps: ObsidianShimDependencies) {
     },
     fs: {
       async stat(uri: SimpleUri) {
+        if (isInsideVault(uri.fsPath, deps.vaultBasePath)) {
+          const relPath = toVaultRelativePath(uri.fsPath, deps.vaultBasePath);
+          if (deps.adapter?.stat) {
+            try {
+              const st = await deps.adapter.stat(relPath);
+              if (st) {
+                let type = FileType.Unknown;
+                if (st.type === "file") type |= FileType.File;
+                else if (st.type === "folder") type |= FileType.Directory;
+                return {
+                  type,
+                  ctime: st.ctime ?? 0,
+                  mtime: st.mtime ?? 0,
+                  size: st.size ?? 0,
+                };
+              }
+            } catch {}
+          }
+          if (deps.vault?.getAbstractFileByPath) {
+            const af = deps.vault.getAbstractFileByPath(relPath);
+            if (af) {
+              const isFolder = Boolean(af.children);
+              return {
+                type: isFolder ? FileType.Directory : FileType.File,
+                ctime: af.stat?.ctime ?? 0,
+                mtime: af.stat?.mtime ?? 0,
+                size: af.stat?.size ?? 0,
+              };
+            }
+          }
+        }
         const st = await fsp.stat(uri.fsPath);
         let type = FileType.Unknown;
         if (st.isFile()) type |= FileType.File;
@@ -593,10 +706,48 @@ export function createObsidianVscodeShim(deps: ObsidianShimDependencies) {
         };
       },
       async readFile(uri: SimpleUri): Promise<Uint8Array> {
+        if (isInsideVault(uri.fsPath, deps.vaultBasePath)) {
+          const relPath = toVaultRelativePath(uri.fsPath, deps.vaultBasePath);
+          if (deps.vault?.getAbstractFileByPath && deps.vault?.readBinary) {
+            const file = deps.vault.getAbstractFileByPath(relPath);
+            if (file) {
+              try {
+                const buf = await deps.vault.readBinary(file);
+                return new Uint8Array(buf);
+              } catch {}
+            }
+          }
+          if (deps.adapter?.readBinary) {
+            try {
+              const buf = await deps.adapter.readBinary(relPath);
+              return new Uint8Array(buf);
+            } catch {}
+          }
+        }
         const buf = await fsp.readFile(uri.fsPath);
         return new Uint8Array(buf);
       },
       async readDirectory(uri: SimpleUri): Promise<Array<[string, number]>> {
+        if (isInsideVault(uri.fsPath, deps.vaultBasePath)) {
+          const relPath = toVaultRelativePath(uri.fsPath, deps.vaultBasePath);
+          if (deps.adapter?.list) {
+            try {
+              const list = await deps.adapter.list(relPath);
+              const res: Array<[string, number]> = [];
+              for (const folder of list.folders ?? []) {
+                const base = path.basename(folder);
+                if (!base.startsWith(".obsidian") && base !== ".git") {
+                  res.push([base, FileType.Directory]);
+                }
+              }
+              for (const file of list.files ?? []) {
+                const base = path.basename(file);
+                res.push([base, FileType.File]);
+              }
+              return res;
+            } catch {}
+          }
+        }
         const entries = await fsp.readdir(uri.fsPath, { withFileTypes: true });
         return entries
           .filter((e) => !e.name.startsWith(".obsidian") && e.name !== ".git")
@@ -784,10 +935,26 @@ export function createObsidianVscodeShim(deps: ObsidianShimDependencies) {
           leftUri,
           rightUri,
           title: title ?? "Hermes Diff",
-          readContent: (u: SimpleUri) => {
+          readContent: async (u: SimpleUri) => {
             if (u.scheme === "file") {
+              if (isInsideVault(u.fsPath, deps.vaultBasePath)) {
+                const relPath = toVaultRelativePath(u.fsPath, deps.vaultBasePath);
+                if (deps.vault?.getAbstractFileByPath && deps.vault?.read) {
+                  const file = deps.vault.getAbstractFileByPath(relPath);
+                  if (file) {
+                    try {
+                      return await deps.vault.read(file);
+                    } catch {}
+                  }
+                }
+                if (deps.adapter?.read) {
+                  try {
+                    return await deps.adapter.read(relPath);
+                  } catch {}
+                }
+              }
               try {
-                return fs.readFileSync(u.fsPath, "utf8");
+                return await fsp.readFile(u.fsPath, "utf8");
               } catch {
                 return "";
               }
@@ -848,7 +1015,8 @@ export function createObsidianVscodeShim(deps: ObsidianShimDependencies) {
     getExtension(id: string) {
       if (id === "vscode.git") {
         const gitDir = path.join(deps.vaultBasePath, ".git");
-        if (!fs.existsSync(gitDir)) return undefined;
+        const hasGit = deps.hasGit ? deps.hasGit() : fs.existsSync(gitDir);
+        if (!hasGit) return undefined;
         return {
           isActive: true,
           exports: {

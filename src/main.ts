@@ -88,9 +88,18 @@ export default class HermesStudioPlugin extends Plugin {
       },
     });
 
+    let hasGitRepo = false;
+    try {
+      hasGitRepo = Boolean(await this.app?.vault?.adapter?.exists?.(".git"));
+    } catch {}
+
     this.vscodeShim = createObsidianVscodeShim({
       vaultBasePath,
       vaultName,
+      app: this.app,
+      vault: this.app?.vault,
+      adapter: this.app?.vault?.adapter,
+      hasGit: () => hasGitRepo,
       getSettings: () => this.settings,
       updateSetting: async (key, value) => {
         (this.settings as any)[key] = value;
@@ -116,8 +125,8 @@ export default class HermesStudioPlugin extends Plugin {
         await this.openVaultFile(absPath, selection);
       },
       openDiffInObsidian: async ({ leftUri, rightUri, title, readContent }) => {
-        const beforeText = readContent(leftUri) ?? "";
-        const afterText = readContent(rightUri) ?? "";
+        const beforeText = (await Promise.resolve(readContent(leftUri))) ?? "";
+        const afterText = (await Promise.resolve(readContent(rightUri))) ?? "";
         const filePath =
           rightUri.scheme === "file"
             ? rightUri.fsPath

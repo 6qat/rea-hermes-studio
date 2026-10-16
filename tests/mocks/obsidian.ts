@@ -3,6 +3,26 @@ export class FileSystemAdapter {
   getBasePath(): string {
     return this.basePath;
   }
+  async exists(_path: string): Promise<boolean> {
+    return true;
+  }
+  async stat(_path: string): Promise<any> {
+    return { ctime: 0, mtime: 0, size: 0, type: "file" };
+  }
+  async read(_path: string): Promise<string> {
+    return "";
+  }
+  async readBinary(_path: string): Promise<ArrayBuffer> {
+    return new ArrayBuffer(0);
+  }
+  async write(_path: string, _data: string): Promise<void> {}
+  async list(_path: string): Promise<{ files: string[]; folders: string[] }> {
+    return { files: [], folders: [] };
+  }
+}
+
+export function normalizePath(p: string): string {
+  return p.replace(/\\/g, "/").replace(/\/+/g, "/").replace(/^\/|\/$/g, "");
 }
 
 export class Component {

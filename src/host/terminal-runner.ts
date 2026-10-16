@@ -1,4 +1,6 @@
 import childProcess from "node:child_process";
+import fs from "node:fs";
+import path from "node:path";
 
 export interface TerminalSpawnOptions {
   name: string;
@@ -21,12 +23,25 @@ const LINUX_TERMINALS: Array<{ bin: string; args: (cmd: string[]) => string[] }>
 ];
 
 function commandExists(bin: string): boolean {
-  try {
-    const res = childProcess.spawnSync("which", [bin], { stdio: "ignore" });
-    return res.status === 0;
-  } catch {
-    return false;
+  if (path.isAbsolute(bin)) {
+    try {
+      fs.accessSync(bin, fs.constants.X_OK);
+      return true;
+    } catch {
+      return false;
+    }
   }
+  const envPath = process.env.PATH || "";
+  const parts = envPath.split(path.delimiter);
+  for (const dir of parts) {
+    if (!dir) continue;
+    const full = path.join(dir, bin);
+    try {
+      fs.accessSync(full, fs.constants.X_OK);
+      return true;
+    } catch {}
+  }
+  return false;
 }
 
 export function launchExternalTerminal(opts: TerminalSpawnOptions): {

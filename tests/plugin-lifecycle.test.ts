@@ -38,6 +38,10 @@ describe("HermesStudioPlugin lifecycle & views", () => {
             return { name: "attachments", path: "attachments" };
           return null;
         },
+        on: () => ({}),
+        offref: () => {},
+        read: async () => "",
+        readBinary: async () => new ArrayBuffer(0),
       },
       metadataCache: {
         getFirstLinkpathDest: (p: string) => {
@@ -93,7 +97,7 @@ describe("HermesStudioPlugin lifecycle & views", () => {
     const plugin = new HermesStudioPlugin(mockApp, {
       id: "hermes-studio",
       name: "Hermes Studio",
-      version: "0.6.7",
+      version: "0.6.8",
       dir: tmpVault,
     } as any);
 
