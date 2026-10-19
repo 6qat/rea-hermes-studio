@@ -79,8 +79,20 @@ describe("VaultDocumentRouter", () => {
       },
       getLeavesOfType: (t: string) => openLeaves.filter((l: any) => l.view?.getViewType?.() === t),
       getLeaf: () => {
+        let cursorSet: any = null;
+        let scrolledTo: any = null;
         const leaf: any = {
-          view: { file: null, editor: { setCursor: () => {}, scrollIntoView: () => {} } },
+          view: {
+            file: null,
+            editor: {
+              setCursor: (pos: any) => {
+                cursorSet = pos;
+              },
+              scrollIntoView: (range: any) => {
+                scrolledTo = range;
+              },
+            },
+          },
           currentMode: "source",
           getViewState: () => ({
             type: "markdown",
@@ -94,6 +106,8 @@ describe("VaultDocumentRouter", () => {
             if (opts?.state?.mode) leaf.currentMode = opts.state.mode;
             openedFiles.push({ file: f, opts });
           },
+          getCursor: () => cursorSet,
+          getScroll: () => scrolledTo,
         };
         openLeaves.push(leaf);
         return leaf;
@@ -147,7 +161,17 @@ describe("VaultDocumentRouter", () => {
     });
   });
 
-  describe("linkify", () => {
+  describe("resolveWikiLink", () => {
+    it("resolves direct notes and trailing subpaths", () => {
+      const { router } = createTestHarness();
+
+      expect(router.resolveWikiLink("Meus Documentos")).toBe("Meus Documentos.md");
+      expect(router.resolveWikiLink("Guiga/Guiga")).toBe("CONTENT_CREATION/Guiga/Guiga.md");
+      expect(router.resolveWikiLink("NonExistent")).toBeUndefined();
+    });
+  });
+
+  describe("linkify & linkifyVaultReferences", () => {
     it("converts [[WikiLinks]] and bullet note references to Reading View links", () => {
       const { router } = createTestHarness();
 
@@ -172,6 +196,9 @@ And an explicit link [[AI/AI|Artificial Intelligence]] and fenced code:
       expect(output).toContain("```markdown\n- Meus Documentos\n```");
       // Non-existent notes must not be linkified
       expect(output).toContain("- NotANote");
+
+      // Canonical glossary alias
+      expect(router.linkifyVaultReferences(input)).toBe(output);
     });
   });
 
@@ -191,12 +218,14 @@ And an explicit link [[AI/AI|Artificial Intelligence]] and fenced code:
       expect(activeLeaves.length).toBeGreaterThan(0);
     });
 
-    it("handles line numbers and jumps to target cursor line", async () => {
+    it("handles line numbers, switches to source mode, and positions cursor", async () => {
       const { router, openLeaves } = createTestHarness();
 
       const res = await router.routeUri("Meus Documentos.md:42");
       expect(res).toBe(true);
       expect(openLeaves.length).toBe(1);
+      expect(openLeaves[0].currentMode).toBe("source");
+      expect(openLeaves[0].getCursor()).toEqual({ line: 41, ch: 0 });
     });
 
     it("opens external files via openDocumentInObsidian", async () => {
