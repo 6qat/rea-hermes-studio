@@ -71,9 +71,10 @@ export class HermesStudioView extends ItemView {
       onMessageFromWebview: async (msg) => {
         if (msg?.type === "checkPaths" && Array.isArray(msg.paths)) {
           const known: Record<string, boolean> = {};
+          const router = this.plugin.router;
           for (const p of msg.paths) {
             if (typeof p === "string") {
-              known[p] = this.plugin.isVaultPathKnown(p);
+              known[p] = router ? router.isPathKnown(p) : this.plugin.isVaultPathKnown(p);
             }
           }
           this.mounted?.postMessageToWebview({ type: "paths", known });
@@ -82,10 +83,10 @@ export class HermesStudioView extends ItemView {
         }
 
         if (msg?.type === "openFile" && msg.path) {
-          const opened = await this.plugin.openVaultFile(
-            msg.path,
-            msg.line ? { startLine: msg.line, endLine: msg.line } : undefined,
-          );
+          const selection = msg.line ? { startLine: msg.line, endLine: msg.line } : undefined;
+          const opened = this.plugin.router
+            ? await this.plugin.router.routeUri(msg.path, selection ? { selection } : undefined)
+            : await this.plugin.openVaultFile(msg.path, selection);
           if (opened) return;
         }
 
@@ -96,7 +97,9 @@ export class HermesStudioView extends ItemView {
             msg.href.startsWith("wikilink://") ||
             !/^[a-z]+:\/\//i.test(msg.href)
           ) {
-            const opened = await this.plugin.openVaultFile(msg.href);
+            const opened = this.plugin.router
+              ? await this.plugin.router.routeUri(msg.href)
+              : await this.plugin.openVaultFile(msg.href);
             if (opened) return;
           }
         }
