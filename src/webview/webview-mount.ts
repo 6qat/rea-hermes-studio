@@ -7,6 +7,8 @@ export interface HermesWebviewMountOptions {
   onMessageFromWebview: (msg: any) => void;
   getState?: () => any;
   setState?: (state: any) => void;
+  linkifyVaultText?: (markdownText: string) => string;
+  isVaultPathKnown?: (path: string) => boolean;
 }
 
 export interface HermesWebviewMounted {
@@ -92,6 +94,8 @@ export function mountHermesWebview(options: HermesWebviewMountOptions): HermesWe
     root: shadowRoot,
     appEl,
     extractDroppedFileUris,
+    linkifyVaultText: options.linkifyVaultText,
+    isVaultPathKnown: options.isVaultPathKnown,
     onHostMessage(listener: (msg: any) => void) {
       hostMessageListeners.add(listener);
       return () => hostMessageListeners.delete(listener);

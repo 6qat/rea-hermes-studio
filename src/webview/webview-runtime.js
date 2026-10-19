@@ -15910,10 +15910,13 @@ function Tg(e) {
   if (r.startsWith("[[") && r.endsWith("]]")) {
     r = r.slice(2, -2).trim();
   }
+  if (__env?.isVaultPathKnown?.(r)) {
+    return i && i > 0 ? { path: r, line: i } : { path: r };
+  }
   let a = r.replace(/[\\/]+$/, "").split(/[\\/]/).pop() ?? ``,
     o = /[\\/]/.test(r) && r.length > 0,
     s = /^[^.].*\.[A-Za-z0-9]{1,10}$/.test(a),
-    hasSpace = r.includes(" ") && !/[;{}()[\]\\~`!@#$%^&=+—]/.test(r);
+    hasSpace = r.includes(" ") && !/[;{}[\]\\~`!@#$%^=]/.test(r);
   if (o || s || hasSpace) return i && i > 0 ? { path: r, line: i } : { path: r };
 }
 function Eg(e) {
@@ -16020,7 +16023,13 @@ var Mg,
               (e.setAttribute(`data-href`, t),
               e.setAttribute(`role`, `link`),
               e.setAttribute(`tabindex`, `0`),
-              e.getAttribute(`title`) || e.setAttribute(`title`, t)));
+              e.getAttribute(`title`) ||
+                e.setAttribute(
+                  `title`,
+                  t.startsWith(`wikilink://`)
+                    ? `Open ${decodeURIComponent(t.slice(11))}`
+                    : t,
+                )));
         } else if (e.tagName === `INPUT`)
           (e.setAttribute(`type`, `checkbox`), e.setAttribute(`disabled`, ``));
         else if (e.tagName === `BUTTON`) e.setAttribute(`type`, `button`);
@@ -16050,19 +16059,26 @@ var Mg,
         ],
         ALLOW_DATA_ATTR: !1,
         FORBID_ATTR: [`style`],
+        ALLOWED_URI_REGEXP:
+          /^(?:(?:(?:f|ht)tps?|mailto|tel|callto|sms|cid|xmpp|matrix|obsidian|wikilink|file):|[^a-z]|[a-z+.\-]+(?:[^a-z+.\-:]|$))/i,
       }),
       (Fg = class {
         #e = new Map();
         #t = `{}`;
         render(e) {
           let text = e;
-          if (typeof text === "string" && text.includes("[[")) {
-            text = text.replace(/`[^`\n]+`|```[\s\S]*?```|\[\[([^\]\n|]+)(?:\|([^\]\n]+))?\]\]/g, (match, target, label) => {
-              if (!target) return match;
-              let cleanTarget = target.trim();
-              let cleanLabel = (label ?? target).trim();
-              return `[${cleanLabel}](wikilink://${encodeURIComponent(cleanTarget)})`;
-            });
+          if (typeof text === "string") {
+            if (__env?.linkifyVaultText) {
+              text = __env.linkifyVaultText(text);
+            } else if (text.includes("[[")) {
+              text = text.replace(/`[^`\n]+`|```[\s\S]*?```|\[\[([^\]\n|]+)(?:\|([^\]\n]+))?\]\]/g, (match, target, label) => {
+                if (!target) return match;
+                let cleanTarget = target.trim();
+                let cleanLabel = (label ?? target).trim().replace(/\[/g, "\\[").replace(/\]/g, "\\]");
+                let encoded = encodeURIComponent(cleanTarget).replace(/\(/g, "%28").replace(/\)/g, "%29");
+                return `[${cleanLabel}](wikilink://${encoded})`;
+              });
+            }
           }
           let t = Ng.lexer(text),
             n = JSON.stringify(t.links);
@@ -16095,6 +16111,10 @@ function Lg(e, t) {
     for (let t of H(a).querySelectorAll(`code.md-path`)) {
       let n = t.dataset.path ?? ``,
         r = $.files.get(n);
+      if (r === void 0 && __env?.isVaultPathKnown) {
+        r = Boolean(__env.isVaultPathKnown(n));
+        $.files.set(n, r);
+      }
       r === void 0 && e.push(n);
       let i = r === !0;
       (t.classList.toggle(`is-file`, i),

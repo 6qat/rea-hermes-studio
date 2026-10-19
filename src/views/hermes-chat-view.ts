@@ -108,6 +108,8 @@ export class HermesStudioView extends ItemView {
         this.plugin.settings.webviewState = state;
         void this.plugin.saveData(this.plugin.settings);
       },
+      linkifyVaultText: (text) => this.plugin.linkifyVaultReferences(text),
+      isVaultPathKnown: (p) => this.plugin.isVaultPathKnown(p),
     });
 
     // Support direct drag-and-drop of Obsidian notes from File Explorer without requiring Shift

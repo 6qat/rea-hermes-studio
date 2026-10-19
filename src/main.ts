@@ -409,7 +409,7 @@ export default class HermesStudioPlugin extends Plugin {
     if (withoutSlash && this.app?.metadataCache?.getFirstLinkpathDest?.(withoutSlash, ""))
       return true;
 
-    // 5. Match by file name, basename, or path across vault files
+    // 5. Match by file name, basename, path, or trailing subpath across vault files
     const lower = clean.toLowerCase();
     const lowerNoSlash = withoutSlash.toLowerCase();
     const allFiles: TFile[] = this.app?.vault?.getFiles?.() ?? [];
@@ -425,7 +425,11 @@ export default class HermesStudioPlugin extends Plugin {
         bn === lowerNoSlash ||
         fp === lowerNoSlash ||
         fp === `${lower}.md` ||
-        fp === `${lowerNoSlash}.md`
+        fp === `${lowerNoSlash}.md` ||
+        fp.endsWith(`/${lower}`) ||
+        fp.endsWith(`/${lower}.md`) ||
+        (lowerNoSlash.length > 0 &&
+          (fp.endsWith(`/${lowerNoSlash}`) || fp.endsWith(`/${lowerNoSlash}.md`)))
       );
     });
     if (match) return true;
@@ -440,6 +444,212 @@ export default class HermesStudioPlugin extends Plugin {
     if (folderMatch) return true;
 
     return false;
+  }
+
+  /**
+   * Automatically linkifies plain-text references to existing vault notes and
+   * `[[WikiLinks]]` in assistant Markdown responses so clicking them opens the
+   * note in Obsidian Reading View mode (`preview`).
+   */
+  public linkifyVaultReferences(markdownText: string): string {
+    if (!markdownText || typeof markdownText !== "string") return markdownText;
+
+    const allFiles: TFile[] = this.app?.vault?.getFiles?.() ?? [];
+    const exactFileMap = new Map<string, string>();
+    const caseSensitiveFileMap = new Map<string, string>();
+
+    for (const f of allFiles) {
+      if (!f?.path) continue;
+      const fp = f.path;
+      const fpNoExt = fp.replace(/\.md$/i, "");
+      const fn = f.name ?? path.posix.basename(fp);
+      const bn = f.basename ?? fn.replace(/\.md$/i, "");
+
+      exactFileMap.set(fp.toLowerCase(), fp);
+      exactFileMap.set(fpNoExt.toLowerCase(), fp);
+      caseSensitiveFileMap.set(fp, fp);
+      caseSensitiveFileMap.set(fpNoExt, fp);
+
+      // Register trailing 2-segment subpaths (e.g. "Guiga/Guiga" for "CONTENT_CREATION/Guiga/Guiga.md")
+      const segments = fpNoExt.split("/");
+      if (segments.length >= 2) {
+        const tail2 = segments.slice(-2).join("/");
+        if (!exactFileMap.has(tail2.toLowerCase())) {
+          exactFileMap.set(tail2.toLowerCase(), fp);
+        }
+        if (!caseSensitiveFileMap.has(tail2)) {
+          caseSensitiveFileMap.set(tail2, fp);
+        }
+        const tail2Md = `${tail2}.md`;
+        if (!exactFileMap.has(tail2Md.toLowerCase())) {
+          exactFileMap.set(tail2Md.toLowerCase(), fp);
+        }
+        if (!caseSensitiveFileMap.has(tail2Md)) {
+          caseSensitiveFileMap.set(tail2Md, fp);
+        }
+      }
+
+      if (fn && !exactFileMap.has(fn.toLowerCase())) {
+        exactFileMap.set(fn.toLowerCase(), fp);
+      }
+      if (fn && !caseSensitiveFileMap.has(fn)) {
+        caseSensitiveFileMap.set(fn, fp);
+      }
+      if (bn && !exactFileMap.has(bn.toLowerCase())) {
+        exactFileMap.set(bn.toLowerCase(), fp);
+      }
+      if (bn && !caseSensitiveFileMap.has(bn)) {
+        caseSensitiveFileMap.set(bn, fp);
+      }
+    }
+
+    const encodeWikiUri = (targetPath: string): string =>
+      `wikilink://${encodeURIComponent(targetPath).replace(/\(/g, "%28").replace(/\)/g, "%29")}`;
+
+    const makeWikiLink = (label: string, targetPath: string): string =>
+      `[${label}](${encodeWikiUri(targetPath)})`;
+
+    // Protect fenced code blocks, inline code, existing markdown links, and raw URLs
+    const placeholders: string[] = [];
+    const savePlaceholder = (content: string): string => {
+      const idx = placeholders.length;
+      placeholders.push(content);
+      return `@@HERMES_PH_${idx}@@`;
+    };
+
+    // 1. Protect fenced code blocks and inline code spans
+    let text = markdownText.replace(/```[\s\S]*?```|`[^`\n]+`/g, (m) => savePlaceholder(m));
+
+    // 2. Convert explicit [[WikiLink]] or [[WikiLink|Alias]] into clickable markdown links
+    text = text.replace(
+      /!?\[\[([^\]|#]+)(?:#[^\]|]*)?(?:\|([^\]]+))?\]\]/g,
+      (_m, rawTarget, alias) => {
+        const target = String(rawTarget ?? "").trim();
+        const label = String(alias ?? target).trim();
+        if (!target) return _m;
+        const resolved = exactFileMap.get(target.toLowerCase()) ?? target;
+        return savePlaceholder(makeWikiLink(label, resolved));
+      },
+    );
+
+    // 3. Protect existing markdown links [text](url) and raw https?:// URLs
+    text = text.replace(/\[[^\]]+\]\([^)]+\)|https?:\/\/[^\s)]+/g, (m) => savePlaceholder(m));
+
+    if (exactFileMap.size === 0) {
+      return text.replace(/@@HERMES_PH_(\d+)@@/g, (_m, i) => placeholders[Number(i)] ?? _m);
+    }
+
+    const stripFormatting = (s: string): { leading: string; core: string; trailing: string } => {
+      const m = /^(\*\*|\*|["'“”‘’]+)?(.+?)(\*\*|\*|["'“”‘’]+)?$/.exec(s.trim());
+      if (!m) return { leading: "", core: s.trim(), trailing: "" };
+      return {
+        leading: m[1] ?? "",
+        core: (m[2] ?? s).trim(),
+        trailing: m[3] ?? "",
+      };
+    };
+
+    const resolveCandidate = (raw: string): { rendered: string } | null => {
+      const { leading, core, trailing } = stripFormatting(raw);
+      if (!core || core.includes("@@HERMES_PH_")) return null;
+      const lookupKey = core.replace(/\.md$/i, "").toLowerCase();
+      const matchedPath = exactFileMap.get(core.toLowerCase()) ?? exactFileMap.get(lookupKey);
+      if (!matchedPath) return null;
+      return {
+        rendered: `${leading}${savePlaceholder(makeWikiLink(core, matchedPath))}${trailing}`,
+      };
+    };
+
+    // 4. Linkify bullet/numbered list items that name vault notes (e.g. "- 13:12 — Note Title" or "- Note Title")
+    const lines = text.split("\n");
+    for (let idx = 0; idx < lines.length; idx++) {
+      const line = lines[idx] ?? "";
+      const listMatch =
+        /^(\s*(?:[-*+]|\d+\.)\s+(?:(?:\*\*|\*)?\d{1,2}:\d{2}(?::\d{2})?(?:\*\*|\*)?\s*(?:—|–|-|:)\s*)?)(.+?)\s*$/.exec(
+          line,
+        );
+      if (!listMatch) continue;
+      const prefix = listMatch[1] ?? "";
+      const remainder = (listMatch[2] ?? "").trim();
+      if (!remainder || remainder.includes("@@HERMES_PH_")) continue;
+
+      const direct = resolveCandidate(remainder);
+      if (direct) {
+        lines[idx] = `${prefix}${direct.rendered}`;
+        continue;
+      }
+
+      // Also check trailing timestamp format: "- Note Title (13:12)" or "- Note Title — 13:12"
+      const trailingTimeMatch =
+        /^(.+?)\s*((?:—|–|-)\s*\d{1,2}:\d{2}(?::\d{2})?|\(\d{1,2}:\d{2}(?::\d{2})?\))\s*$/.exec(
+          remainder,
+        );
+      if (trailingTimeMatch?.[1] && trailingTimeMatch[2]) {
+        const leadingNote = resolveCandidate(trailingTimeMatch[1]);
+        if (leadingNote) {
+          lines[idx] = `${prefix}${leadingNote.rendered} ${trailingTimeMatch[2]}`;
+        }
+      }
+    }
+    text = lines.join("\n");
+
+    // 5. Linkify remaining exact note titles / subpaths (longest first, min 4 chars)
+    const multiTokenCandidates: Array<{ key: string; targetPath: string; caseSensitive: boolean }> =
+      [];
+    const seenKeys = new Set<string>();
+
+    for (const [casedKey, targetPath] of caseSensitiveFileMap.entries()) {
+      if (casedKey.length < 4) continue;
+      const lowerKey = casedKey.toLowerCase();
+      const isMultiWordOrPath = /[\s/.—–-]/.test(casedKey);
+      if (isMultiWordOrPath) {
+        if (!seenKeys.has(lowerKey)) {
+          seenKeys.add(lowerKey);
+          multiTokenCandidates.push({ key: lowerKey, targetPath, caseSensitive: false });
+        }
+      } else {
+        // Single-word note title: require case-sensitive match so common lowercase prose words aren't linked
+        multiTokenCandidates.push({ key: casedKey, targetPath, caseSensitive: true });
+      }
+    }
+
+    multiTokenCandidates.sort((a, b) => b.key.length - a.key.length);
+
+    if (multiTokenCandidates.length > 0) {
+      const updatedLines = text.split("\n");
+      for (let idx = 0; idx < updatedLines.length; idx++) {
+        let line = updatedLines[idx] ?? "";
+        if (!line.trim()) continue;
+        // Skip pure bold/heading lines that are single folder headers (e.g. "**Raiz**", "***AI***")
+        if (/^\s*(?:#+\s+|\*{2,3}[^*]+\*{2,3}\s*$)/.test(line)) continue;
+
+        for (const cand of multiTokenCandidates) {
+          if (cand.caseSensitive) {
+            if (!line.includes(cand.key)) continue;
+          } else {
+            if (!line.toLowerCase().includes(cand.key)) continue;
+          }
+          const escaped = cand.key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+          const flags = cand.caseSensitive ? "g" : "gi";
+          const rx = new RegExp(
+            `(^|[^\\p{L}\\p{N}_/])(${escaped})(?=$|[^\\p{L}\\p{N}_/])`,
+            `${flags}u`,
+          );
+          line = line.replace(rx, (_full, pre, matchedText) => {
+            return `${pre}${savePlaceholder(makeWikiLink(matchedText, cand.targetPath))}`;
+          });
+        }
+        updatedLines[idx] = line;
+      }
+      text = updatedLines.join("\n");
+    }
+
+    // Restore all placeholders (iterate in reverse so nested placeholders expand if any)
+    for (let pass = 0; pass < 2; pass++) {
+      if (!text.includes("@@HERMES_PH_")) break;
+      text = text.replace(/@@HERMES_PH_(\d+)@@/g, (_m, i) => placeholders[Number(i)] ?? _m);
+    }
+    return text;
   }
 
   public async openVaultFile(
@@ -550,7 +760,7 @@ export default class HermesStudioPlugin extends Plugin {
         this.app?.metadataCache?.getFirstLinkpathDest?.(cleanTarget || target, "") ?? null;
     }
 
-    // 6. Match against vault files by name or basename
+    // 6. Match against vault files by name, basename, path, or trailing subpath
     if (!abstractFile) {
       const allFiles: TFile[] = this.app?.vault?.getFiles?.() ?? [];
       const lower = (cleanTarget || target).toLowerCase();
@@ -558,7 +768,14 @@ export default class HermesStudioPlugin extends Plugin {
         const fn = f.name?.toLowerCase?.() ?? "";
         const bn = f.basename?.toLowerCase?.() ?? "";
         const fp = f.path?.toLowerCase?.() ?? "";
-        return fn === lower || bn === lower || fp === lower || fp === `${lower}.md`;
+        return (
+          fn === lower ||
+          bn === lower ||
+          fp === lower ||
+          fp === `${lower}.md` ||
+          fp.endsWith(`/${lower}`) ||
+          fp.endsWith(`/${lower}.md`)
+        );
       });
       if (matchedFile) {
         abstractFile = matchedFile;

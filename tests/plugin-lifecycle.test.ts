@@ -27,6 +27,34 @@ describe("HermesStudioPlugin lifecycle & views", () => {
         getFiles: () => [
           { name: "Meus Documentos.md", basename: "Meus Documentos", path: "Meus Documentos.md" },
           {
+            name: "Torresminho e Vida - Doutor Churras.md",
+            basename: "Torresminho e Vida - Doutor Churras",
+            path: "Torresminho e Vida - Doutor Churras.md",
+          },
+          { name: "To Study.md", basename: "To Study", path: "To Study.md" },
+          {
+            name: "Hermes to Headless Antigravity (agy).md",
+            basename: "Hermes to Headless Antigravity (agy)",
+            path: "AI/Hermes to Headless Antigravity (agy).md",
+          },
+          { name: "AI.md", basename: "AI", path: "AI/AI.md" },
+          { name: "v1.3.2-v1.3.6.md", basename: "v1.3.2-v1.3.6", path: "AI/v1.3.2-v1.3.6.md" },
+          {
+            name: "Receita Cardiológica - SOS Cardio (junho 2026).md",
+            basename: "Receita Cardiológica - SOS Cardio (junho 2026)",
+            path: "SAÚDE/Receita Cardiológica - SOS Cardio (junho 2026).md",
+          },
+          {
+            name: "Guiga.md",
+            basename: "Guiga",
+            path: "CONTENT_CREATION/Guiga/Guiga.md",
+          },
+          {
+            name: "Daily Research Digest.md",
+            basename: "Daily Research Digest",
+            path: "CRON_JOBS/Daily Research Digest.md",
+          },
+          {
             name: "identidade-1.jpg",
             basename: "identidade-1",
             path: "attachments/identidade-1.jpg",
@@ -205,6 +233,98 @@ describe("HermesStudioPlugin lifecycle & views", () => {
     expect(openedNonExistent).toBe(false);
 
     fs.rmSync(externalDir, { recursive: true, force: true });
+
+    // 5. Verify plain-text vault note lists in assistant chat messages are linkified and open in Reading View mode
+    const chatMarkdown = [
+      "Aqui estão as notas modificadas hoje (16/04/2026), agrupadas por pasta:",
+      "",
+      "**Raiz**",
+      "- 13:12 — Torresminho e Vida - Doutor Churras",
+      "- 14:44 — To Study",
+      "",
+      "***AI***",
+      "- 12:24 — Hermes to Headless Antigravity (agy)",
+      "- 16:40 — AI",
+      "- 18:10 — v1.3.2-v1.3.6",
+      "",
+      "***SAÚDE***",
+      "- 13:30 — Receita Cardiológica - SOS Cardio (junho 2026)",
+      "",
+      "***CONTENT_CREATION***",
+      "- 10:03 — Guiga/Guiga",
+      "",
+      "***CRON_JOBS***",
+      "- 00:01 — Daily Research Digest",
+    ].join("\n");
+
+    const linkified = plugin.linkifyVaultReferences(chatMarkdown);
+    expect(linkified).toContain(
+      "[Torresminho e Vida - Doutor Churras](wikilink://Torresminho%20e%20Vida%20-%20Doutor%20Churras.md)",
+    );
+    expect(linkified).toContain("[To Study](wikilink://To%20Study.md)");
+    expect(linkified).toContain(
+      "[Hermes to Headless Antigravity (agy)](wikilink://AI%2FHermes%20to%20Headless%20Antigravity%20%28agy%29.md)",
+    );
+    expect(linkified).toContain("[AI](wikilink://AI%2FAI.md)");
+    expect(linkified).toContain("[v1.3.2-v1.3.6](wikilink://AI%2Fv1.3.2-v1.3.6.md)");
+    expect(linkified).toContain(
+      "[Receita Cardiológica - SOS Cardio (junho 2026)](wikilink://SA%C3%9ADE%2FReceita%20Cardiol%C3%B3gica%20-%20SOS%20Cardio%20%28junho%202026%29.md)",
+    );
+    expect(linkified).toContain("[Guiga/Guiga](wikilink://CONTENT_CREATION%2FGuiga%2FGuiga.md)");
+    expect(linkified).toContain(
+      "[Daily Research Digest](wikilink://CRON_JOBS%2FDaily%20Research%20Digest.md)",
+    );
+
+    // Send assistant message with this list into the mounted chat webview and verify clickable <a data-href> links
+    const webviewAdapter = sideView.toVscodeWebviewAdapter();
+    await webviewAdapter.webview.postMessage({
+      type: "init",
+      model: {
+        items: [
+          { id: "1", kind: "user", turn: 1, text: "Quais notas foram modificadas hoje?" },
+          { id: "2", kind: "assistant", turn: 1, text: chatMarkdown },
+        ],
+        meta: {
+          connection: { state: "ready" },
+          busy: false,
+          turn: 1,
+          queued: [],
+          models: [],
+          model: "anthropic/claude-sonnet-4",
+          modes: [],
+          skills: [],
+          folder: "PluginTestVault",
+        },
+      },
+    });
+    await new Promise((r) => setTimeout(r, 40));
+
+    const links = Array.from(
+      sideView.contentEl.shadowRoot!.querySelectorAll<HTMLElement>("a[data-href]"),
+    );
+    expect(links.length).toBe(8);
+
+    // Click the link with parentheses ("Receita Cardiológica - SOS Cardio (junho 2026)") and the nested subpath link ("Guiga/Guiga")
+    const receitaLink = links.find((el) => el.textContent?.includes("Receita Cardiológica"));
+    const guigaLink = links.find((el) => el.textContent?.trim() === "Guiga/Guiga");
+    expect(receitaLink).toBeDefined();
+    expect(guigaLink).toBeDefined();
+
+    receitaLink!.click();
+    await new Promise((r) => setTimeout(r, 20));
+    const receitaLeaf = openLeaves.find(
+      (l: any) => l.view?.file?.path === "SAÚDE/Receita Cardiológica - SOS Cardio (junho 2026).md",
+    );
+    expect(receitaLeaf).toBeDefined();
+    expect(receitaLeaf.currentMode).toBe("preview");
+
+    guigaLink!.click();
+    await new Promise((r) => setTimeout(r, 20));
+    const guigaLeaf = openLeaves.find(
+      (l: any) => l.view?.file?.path === "CONTENT_CREATION/Guiga/Guiga.md",
+    );
+    expect(guigaLeaf).toBeDefined();
+    expect(guigaLeaf.currentMode).toBe("preview");
 
     await sideView.onClose();
     sideView.containerEl.remove();
