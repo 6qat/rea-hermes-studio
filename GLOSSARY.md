@@ -15,3 +15,15 @@ _Avoid_: MarkdownEnhancer, AutoLinker, TextTransformer
 **Reading View Mode**:
 Obsidian's rendered Markdown preview mode (`mode: "preview"`), ensuring notes opened from assistant responses are rendered cleanly without raw markdown source syntax.
 _Avoid_: PreviewMode, DisplayMode, RenderedView
+
+**ObsidianHostBridge**:
+The consolidated host seam that packages filesystem, UI dialogs, editor state, and settings into cohesive adapters feeding the VS Code emulation engine.
+_Avoid_: DependencyBag, HostConfig, ShimOptions
+
+**VaultFileSystem**:
+The adapter handling vault-compliant and disk-fallback file inspection, reading, directory listing, and file watcher events for the VS Code workspace.
+_Avoid_: FsHelper, StorageService
+
+**WorkspaceUi**:
+The adapter encapsulating Obsidian modal pickers, notices, diff views, and sidebar tab activations.
+_Avoid_: DialogManager, UiService
