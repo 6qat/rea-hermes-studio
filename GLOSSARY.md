@@ -27,3 +27,11 @@ _Avoid_: FsHelper, StorageService
 **WorkspaceUi**:
 The adapter encapsulating Obsidian modal pickers, notices, diff views, and sidebar tab activations.
 _Avoid_: DialogManager, UiService
+
+**EditorSession**:
+The adapter tracking active note metadata, cursor positions, document selections, and vault diagnostics.
+_Avoid_: EditorTracker, SessionState
+
+**SettingsAdapter**:
+The adapter handling retrieval and asynchronous persistence of extension configuration and user settings.
+_Avoid_: ConfigManager, SettingsStore

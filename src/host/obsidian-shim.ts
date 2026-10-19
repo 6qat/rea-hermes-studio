@@ -14,7 +14,7 @@ export interface HermesSettingsValues {
   trace?: boolean;
 }
 
-export interface VaultFileSystemAdapter {
+export interface VaultFileSystem {
   vaultBasePath: string;
   vaultName: string;
   app?: any;
@@ -23,8 +23,9 @@ export interface VaultFileSystemAdapter {
   hasGit?: () => boolean;
   listVaultFiles?: () => string[];
 }
+export type VaultFileSystemAdapter = VaultFileSystem;
 
-export interface WorkspaceUiAdapter {
+export interface WorkspaceUi {
   revealSideView?: () => Promise<void>;
   createEditorWebviewPanel?: () => any;
   onBadgeCountChanged?: (count: number, tooltip: string) => void;
@@ -47,6 +48,7 @@ export interface WorkspaceUiAdapter {
   showQuickPickModal?: (items: any[], options?: any) => Promise<any>;
   showOpenFileDialog?: (options?: any) => Promise<SimpleUri[] | undefined>;
 }
+export type WorkspaceUiAdapter = WorkspaceUi;
 
 export interface ActiveEditorState {
   absPath: string;
@@ -70,29 +72,31 @@ export interface VaultDiagnosticItem {
   source?: string;
 }
 
-export interface EditorSessionAdapter {
+export interface EditorSession {
   getActiveEditorState?: () => ActiveEditorState | undefined;
   getVaultDiagnostics?: () => VaultDiagnosticItem[];
   resolveWikiLink?: (linkpath: string) => string | undefined;
 }
+export type EditorSessionAdapter = EditorSession;
 
 export interface SettingsAdapter {
   getSettings: () => HermesSettingsValues;
   updateSetting?: (key: keyof HermesSettingsValues, value: any) => Promise<void>;
 }
 
-export interface ObsidianHostBridgeOptions {
-  fs: VaultFileSystemAdapter;
-  settings: SettingsAdapter;
-  ui?: WorkspaceUiAdapter;
-  editor?: EditorSessionAdapter;
+export interface ObsidianHostBridge {
+  fs?: VaultFileSystem;
+  settings?: SettingsAdapter;
+  ui?: WorkspaceUi;
+  editor?: EditorSession;
 }
+export type ObsidianHostBridgeOptions = ObsidianHostBridge;
 
 export interface NormalizedHostBridge {
-  fs: VaultFileSystemAdapter;
+  fs: VaultFileSystem;
   settings: SettingsAdapter;
-  ui: WorkspaceUiAdapter;
-  editor: EditorSessionAdapter;
+  ui: WorkspaceUi;
+  editor: EditorSession;
 }
 
 export interface ObsidianShimDependencies {
@@ -132,14 +136,28 @@ export interface ObsidianShimDependencies {
 }
 
 export function normalizeHostBridge(
-  input: ObsidianHostBridgeOptions | ObsidianShimDependencies,
+  input: ObsidianHostBridge | ObsidianShimDependencies,
 ): NormalizedHostBridge {
-  if ("fs" in input && "settings" in input) {
+  const isModularBridge =
+    "fs" in input || "settings" in input || "ui" in input || "editor" in input;
+
+  if (isModularBridge) {
+    const bridge = input as ObsidianHostBridge;
     return {
-      fs: input.fs,
-      settings: input.settings,
-      ui: input.ui ?? {},
-      editor: input.editor ?? {},
+      fs: bridge.fs ?? {
+        vaultBasePath: "",
+        vaultName: "Vault",
+      },
+      settings: bridge.settings ?? {
+        getSettings: () => ({
+          path: "",
+          environment: {},
+          autoStart: false,
+          notifications: "all",
+        }),
+      },
+      ui: bridge.ui ?? {},
+      editor: bridge.editor ?? {},
     };
   }
 
@@ -1001,24 +1019,9 @@ export function createObsidianVscodeShim(
           title: title ?? "Hermes Diff",
           readContent: async (u: SimpleUri) => {
             if (u.scheme === "file") {
-              if (isInsideVault(u.fsPath, bridge.fs.vaultBasePath)) {
-                const relPath = toVaultRelativePath(u.fsPath, bridge.fs.vaultBasePath);
-                if (bridge.fs.vault?.getAbstractFileByPath && bridge.fs.vault?.read) {
-                  const file = bridge.fs.vault.getAbstractFileByPath(relPath);
-                  if (file) {
-                    try {
-                      return await bridge.fs.vault.read(file);
-                    } catch {}
-                  }
-                }
-                if (bridge.fs.adapter?.read) {
-                  try {
-                    return await bridge.fs.adapter.read(relPath);
-                  } catch {}
-                }
-              }
               try {
-                return await fsp.readFile(u.fsPath, "utf8");
+                const bytes = await workspace.fs.readFile(u);
+                return Buffer.from(bytes).toString("utf8");
               } catch {
                 return "";
               }
