@@ -112,81 +112,89 @@ export default class HermesStudioPlugin extends Plugin {
     } catch {}
 
     this.vscodeShim = createObsidianVscodeShim({
-      vaultBasePath,
-      vaultName,
-      app: this.app,
-      vault: this.app?.vault,
-      adapter: this.app?.vault?.adapter,
-      hasGit: () => hasGitRepo,
-      getSettings: () => this.settings,
-      updateSetting: async (key, value) => {
-        (this.settings as any)[key] = value;
-        await this.saveSettings(key);
+      fs: {
+        vaultBasePath,
+        vaultName,
+        app: this.app,
+        vault: this.app?.vault,
+        adapter: this.app?.vault?.adapter,
+        hasGit: () => hasGitRepo,
+        listVaultFiles: () => {
+          const files = this.app?.vault?.getFiles?.() ?? [];
+          return files.map((f: TFile) => f.path);
+        },
       },
-      resolveWikiLink: (linkpath) => this.resolveVaultWikiLink(linkpath),
-      listVaultFiles: () => {
-        const files = this.app?.vault?.getFiles?.() ?? [];
-        return files.map((f: TFile) => f.path);
+      settings: {
+        getSettings: () => this.settings,
+        updateSetting: async (key, value) => {
+          (this.settings as any)[key] = value;
+          await this.saveSettings(key);
+        },
       },
-      revealSideView: async () => {
-        await this.activateSideView();
-      },
-      createEditorWebviewPanel: () => {
-        if (this.activeEditorView) {
-          return this.activeEditorView.toVscodeWebviewAdapter();
-        }
-        void this.openEditorViewLeaf();
-        return { _asyncAdopt: true };
-      },
-      getVaultDiagnostics: () => this.collectVaultDiagnostics(),
-      openFileInObsidian: async (absPath, selection) => {
-        await this.openVaultFile(absPath, selection);
-      },
-      openDiffInObsidian: async ({ leftUri, rightUri, title, readContent }) => {
-        const beforeText = (await Promise.resolve(readContent(leftUri))) ?? "";
-        const afterText = (await Promise.resolve(readContent(rightUri))) ?? "";
-        const filePath =
-          rightUri.scheme === "file"
-            ? rightUri.fsPath
-            : leftUri.scheme === "file"
-              ? leftUri.fsPath
-              : undefined;
-        await this.openDiffLeaf({
-          title,
-          beforeText,
-          afterText,
-          filePath,
-          onOpenFile: (fp, line) => {
-            void this.openVaultFile(fp, line ? { startLine: line, endLine: line } : undefined);
-          },
-        });
-      },
-      openPluginSettings: () => {
-        (this.app as any)?.setting?.open?.();
-        (this.app as any)?.setting?.openTabById?.(this.manifest.id);
-      },
-      showNotice: (message, level, actions) => showHermesNotice(message, level, actions),
-      showQuickPickModal: (items, options) =>
-        new Promise((resolve) => {
-          if (options?.canPickMany) {
-            new HermesMultiPickModal(this.app, items, options, resolve).open();
-          } else {
-            new HermesQuickPickModal(this.app, items, options, resolve).open();
+      ui: {
+        revealSideView: async () => {
+          await this.activateSideView();
+        },
+        createEditorWebviewPanel: () => {
+          if (this.activeEditorView) {
+            return this.activeEditorView.toVscodeWebviewAdapter();
           }
-        }),
-      showOpenFileDialog: () => showImageFileDialog(),
-      getActiveEditorState: () => {
-        this.refreshTrackerFromWorkspace();
-        const cur = this.noteTracker.current;
-        if (!cur) return undefined;
-        return {
-          absPath: cur.absPath,
-          relPath: cur.relPath,
-          content: cur.selection?.text ?? "",
-          languageId: "markdown",
-          cursorLine: cur.cursorLine,
-          selection: cur.selection,
-        };
+          void this.openEditorViewLeaf();
+          return { _asyncAdopt: true };
+        },
+        openFileInObsidian: async (absPath, selection) => {
+          await this.openVaultFile(absPath, selection);
+        },
+        openDiffInObsidian: async ({ leftUri, rightUri, title, readContent }) => {
+          const beforeText = (await Promise.resolve(readContent(leftUri))) ?? "";
+          const afterText = (await Promise.resolve(readContent(rightUri))) ?? "";
+          const filePath =
+            rightUri.scheme === "file"
+              ? rightUri.fsPath
+              : leftUri.scheme === "file"
+                ? leftUri.fsPath
+                : undefined;
+          await this.openDiffLeaf({
+            title,
+            beforeText,
+            afterText,
+            filePath,
+            onOpenFile: (fp, line) => {
+              void this.openVaultFile(fp, line ? { startLine: line, endLine: line } : undefined);
+            },
+          });
+        },
+        openPluginSettings: () => {
+          (this.app as any)?.setting?.open?.();
+          (this.app as any)?.setting?.openTabById?.(this.manifest.id);
+        },
+        showNotice: (message, level, actions) => showHermesNotice(message, level, actions),
+        showQuickPickModal: (items, options) =>
+          new Promise((resolve) => {
+            if (options?.canPickMany) {
+              new HermesMultiPickModal(this.app, items, options, resolve).open();
+            } else {
+              new HermesQuickPickModal(this.app, items, options, resolve).open();
+            }
+          }),
+        showOpenFileDialog: () => showImageFileDialog(),
+      },
+      editor: {
+        resolveWikiLink: (linkpath) => this.resolveVaultWikiLink(linkpath),
+        getVaultDiagnostics: () => this.collectVaultDiagnostics(),
+        getActiveEditorState: () => {
+          this.refreshTrackerFromWorkspace();
+          const cur = this.noteTracker.current;
+          if (!cur) return undefined;
+          return {
+            absPath: cur.absPath,
+            relPath: cur.relPath,
+            content: cur.selection?.text ?? "",
+            languageId: "markdown",
+            cursorLine: cur.cursorLine,
+            selection: cur.selection,
+          };
+        },
       },
     });
 
