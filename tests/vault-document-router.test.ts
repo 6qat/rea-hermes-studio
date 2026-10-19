@@ -77,8 +77,7 @@ describe("VaultDocumentRouter", () => {
       iterateAllLeaves: (cb: (l: any) => void) => {
         for (const l of openLeaves) cb(l);
       },
-      getLeavesOfType: (t: string) =>
-        openLeaves.filter((l: any) => l.view?.getViewType?.() === t),
+      getLeavesOfType: (t: string) => openLeaves.filter((l: any) => l.view?.getViewType?.() === t),
       getLeaf: () => {
         const leaf: any = {
           view: { file: null, editor: { setCursor: () => {}, scrollIntoView: () => {} } },
@@ -194,9 +193,9 @@ And an explicit link [[AI/AI|Artificial Intelligence]] and fenced code:
 
     it("handles line numbers and jumps to target cursor line", async () => {
       const { router, openLeaves } = createTestHarness();
-      let jumpedLine = -1;
 
-      await router.routeUri("Meus Documentos.md:42");
+      const res = await router.routeUri("Meus Documentos.md:42");
+      expect(res).toBe(true);
       expect(openLeaves.length).toBe(1);
     });
 

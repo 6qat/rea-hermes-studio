@@ -1,4 +1,3 @@
-import fs from "node:fs";
 import path from "node:path";
 import {
   addIcon,
@@ -6,8 +5,7 @@ import {
   MarkdownView,
   Notice,
   Plugin,
-  TFile,
-  TFolder,
+  type TFile,
   type WorkspaceLeaf,
 } from "obsidian";
 import { type ActivatedHermesCore, activateHermesCore } from "./host/hermes-core-bridge";
