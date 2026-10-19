@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="https://raw.githubusercontent.com/6qat/rea-hermes-studio/main/assets/hermes-studio-banner.png" alt="Hermes Studio for Obsidian" width="100%">
+</p>
+
 # Hermes Studio for Obsidian (`rea-hermes-studio`)
 
 > **Hermes Studio** AI chat, workspace assistant, and diff workbench brought seamlessly into **Obsidian.md**.

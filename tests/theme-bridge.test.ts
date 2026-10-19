@@ -88,6 +88,14 @@ describe("Shadow-DOM scoped Svelte 5 webview mount", () => {
     expect(appEl!.textContent).toContain("anthropic/claude-sonnet-4");
     expect(appEl!.textContent).toContain("Main_Vault");
 
+    // Verify the New chat (+) icon button in the Chat header bar emits { type: "newChat" }
+    const newChatBtn = shadowRoot.querySelector<HTMLButtonElement>(
+      'header button[aria-label="New chat"]',
+    );
+    expect(newChatBtn).not.toBeNull();
+    newChatBtn!.click();
+    expect(receivedByHost.some((m) => m.type === "newChat")).toBe(true);
+
     instance.destroy();
     hostEl.remove();
   });

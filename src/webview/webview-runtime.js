@@ -7937,6 +7937,11 @@ function ud(e, t) {
     };
   (J(p, (e) => {
     n() && t.meta.busy ? e(m) : e(h, -1);
+  }));
+  var newChatBtn = z(p, 2);
+  (W(`click`, newChatBtn, () => {
+    $.sessionsOpen && $.closeSessions(`newChat`);
+    Q({ type: `newChat` });
   }),
     k(s));
   var g = z(s, 2),
@@ -8029,7 +8034,7 @@ var dd,
       (gd = G(`<div class="flex flex-wrap gap-1.5"></div>`)),
       (_d = G(`<div class="mt-2 flex flex-col gap-1.5"><!> <!></div>`)),
       (vd = G(
-        `<header class="shrink-0 border-b border-border px-4 py-2.5"><div class="flex min-w-0 items-center gap-2.5"><button type="button" class="-mx-1.5 -my-1 flex min-w-0 flex-1 cursor-pointer flex-col rounded-md px-1.5 py-1 text-left hover:bg-hover" aria-label="Show sessions in this folder" aria-haspopup="dialog" data-menu-trigger=""><span class="flex max-w-full min-w-0 items-center gap-1"><span class="truncate font-semibold"> </span> <svg class="size-3.5 shrink-0 text-muted" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"></path></svg></span> <!></button> <!></div> <!></header>`,
+        `<header class="shrink-0 border-b border-border px-4 py-2.5"><div class="flex min-w-0 items-center gap-2.5"><button type="button" class="-mx-1.5 -my-1 flex min-w-0 flex-1 cursor-pointer flex-col rounded-md px-1.5 py-1 text-left hover:bg-hover" aria-label="Show sessions in this folder" aria-haspopup="dialog" data-menu-trigger=""><span class="flex max-w-full min-w-0 items-center gap-1"><span class="truncate font-semibold"> </span> <svg class="size-3.5 shrink-0 text-muted" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"></path></svg></span> <!></button> <!> <button type="button" class="plus-btn" aria-label="New chat" title="New chat"><svg class="size-3.5" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3v10M3 8h10" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"></path></svg></button></div> <!></header>`,
       )),
       yi([`click`]));
   });
