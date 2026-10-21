@@ -1,5 +1,5 @@
 import { HERMES_WEBVIEW_BASE_CSS, THEME_BRIDGE_CSS } from "./theme-bridge";
-import { createHermesWebviewInstance } from "./webview-runtime.js";
+import { createHermesWebviewInstance } from "./webview-runtime.cjs";
 
 export interface HermesWebviewMountOptions {
   shadowRoot: ShadowRoot;

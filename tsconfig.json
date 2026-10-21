@@ -4,7 +4,7 @@
     "inlineSources": true,
     "module": "ESNext",
     "target": "ES2022",
-    "allowJs": true,
+    "allowJs": false,
     "noEmit": true,
     "noImplicitAny": false,
     "moduleResolution": "bundler",
@@ -16,5 +16,5 @@
     "resolveJsonModule": true,
     "types": ["node"]
   },
-  "include": ["src/**/*.ts", "src/**/*.js", "tests/**/*.ts"]
+  "include": ["src/**/*.ts", "tests/**/*.ts"]
 }

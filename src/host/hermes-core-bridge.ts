@@ -1,6 +1,6 @@
 import os from "node:os";
 import path from "node:path";
-import { createHermesExtensionModule } from "./hermes-core.js";
+import { createHermesExtensionModule } from "./hermes-core.cjs";
 import type { createObsidianVscodeShim } from "./obsidian-shim";
 
 export interface ActivateHermesCoreOptions {

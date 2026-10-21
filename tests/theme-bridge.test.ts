@@ -22,14 +22,14 @@ describe("Theme Bridge CSS coverage", () => {
 describe("Obsidian drop URI & WikiLink extraction in webview", () => {
   it("parses file://, obsidian://open, and [[WikiLink]] lines into normalized drop tokens", () => {
     const raw = [
-      "file:///home/guiga/Vault/Note.md",
+      "file:///workspace/Vault/Note.md",
       "obsidian://open?vault=Main_Vault&file=Folder%2FSubnote.md",
       "[[Project Plan]]",
     ].join("\n");
 
     const extracted = extractDroppedFileUris(raw);
     expect(extracted).toEqual([
-      "file:///home/guiga/Vault/Note.md",
+      "file:///workspace/Vault/Note.md",
       "obsidian://open?vault=Main_Vault&file=Folder%2FSubnote.md",
       "wikilink://Project Plan",
     ]);
