@@ -58,7 +58,9 @@ export class HermesSettingTab extends PluginSettingTab {
     if (typeof containerEl.empty === "function") {
       containerEl.empty();
     } else {
-      containerEl.innerHTML = "";
+      while (containerEl.firstChild) {
+        containerEl.removeChild(containerEl.firstChild);
+      }
     }
 
     const title = containerEl.ownerDocument.createElement("h2");

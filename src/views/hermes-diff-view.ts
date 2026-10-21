@@ -107,35 +107,22 @@ export function computeUnifiedDiffLines(before: string, after: string): UnifiedD
  */
 export function renderDiffIntoContainer(container: HTMLElement, payload: DiffViewPayload): void {
   const doc = container.ownerDocument || document;
-  container.innerHTML = "";
+  if (typeof (container as any).empty === "function") {
+    (container as any).empty();
+  } else {
+    while (container.firstChild) {
+      container.removeChild(container.firstChild);
+    }
+  }
 
   const wrapper = doc.createElement("div");
   wrapper.className = "hermes-diff-leaf";
-  wrapper.style.cssText = [
-    "display:flex",
-    "flex-direction:column",
-    "height:100%",
-    "background:var(--background-primary, #0b0f19)",
-    "color:var(--text-normal, #e2e8f0)",
-    "font-family:var(--font-interface, sans-serif)",
-    "overflow:hidden",
-  ].join(";");
 
   const header = doc.createElement("div");
-  header.style.cssText = [
-    "display:flex",
-    "align-items:center",
-    "justify-content:space-between",
-    "gap:12px",
-    "padding:10px 16px",
-    "background:var(--background-secondary, #0f172a)",
-    "border-bottom:1px solid var(--background-modifier-border, #1e293b)",
-    "flex-shrink:0",
-  ].join(";");
+  header.className = "hermes-diff-header";
 
   const titleEl = doc.createElement("div");
-  titleEl.style.cssText =
-    "font-weight:600;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;";
+  titleEl.className = "hermes-diff-title";
   titleEl.textContent = payload.title;
   header.appendChild(titleEl);
 
@@ -144,25 +131,25 @@ export function renderDiffIntoContainer(container: HTMLElement, payload: DiffVie
   const deletedCount = rows.filter((r) => r.kind === "del").length;
 
   const rightBar = doc.createElement("div");
-  rightBar.style.cssText = "display:flex;align-items:center;gap:10px;font-size:12px;flex-shrink:0;";
+  rightBar.className = "hermes-diff-actions";
 
   const statsEl = doc.createElement("span");
-  statsEl.innerHTML = `<span style="color:#10b981;font-weight:600">+${addedCount}</span> <span style="color:#ef4444;font-weight:600">-${deletedCount}</span>`;
+  const addSpan = doc.createElement("span");
+  addSpan.className = "hermes-diff-stat-add";
+  addSpan.textContent = `+${addedCount}`;
+
+  const delSpan = doc.createElement("span");
+  delSpan.className = "hermes-diff-stat-del";
+  delSpan.textContent = `-${deletedCount}`;
+
+  statsEl.append(addSpan, " ", delSpan);
   rightBar.appendChild(statsEl);
 
   if (payload.filePath && payload.onOpenFile) {
     const openBtn = doc.createElement("button");
     openBtn.type = "button";
     openBtn.textContent = "Open file";
-    openBtn.style.cssText = [
-      "background:var(--interactive-accent, #6366f1)",
-      "color:var(--text-on-accent, #ffffff)",
-      "border:none",
-      "border-radius:5px",
-      "padding:4px 10px",
-      "font-size:12px",
-      "cursor:pointer",
-    ].join(";");
+    openBtn.className = "hermes-diff-open-btn";
     const firstChanged = rows.find((r) => r.kind !== "ctx");
     openBtn.addEventListener("click", () => {
       payload.onOpenFile?.(payload.filePath!, firstChanged?.newLine ?? firstChanged?.oldLine ?? 1);
@@ -174,44 +161,40 @@ export function renderDiffIntoContainer(container: HTMLElement, payload: DiffVie
   wrapper.appendChild(header);
 
   const scrollArea = doc.createElement("div");
-  scrollArea.style.cssText = "flex:1;overflow:auto;padding:8px 0;";
+  scrollArea.className = "hermes-diff-scroll";
 
   const table = doc.createElement("table");
-  table.style.cssText = [
-    "width:100%",
-    "border-collapse:collapse",
-    "font-family:var(--font-monospace, monospace)",
-    "font-size:12.5px",
-    "line-height:1.5",
-  ].join(";");
+  table.className = "hermes-diff-table";
 
   const tbody = doc.createElement("tbody");
   for (const row of rows) {
     const tr = doc.createElement("tr");
     if (row.kind === "add") {
-      tr.style.background = "rgba(16, 185, 129, 0.14)";
+      tr.className = "hermes-diff-row-add";
     } else if (row.kind === "del") {
-      tr.style.background = "rgba(239, 68, 68, 0.14)";
+      tr.className = "hermes-diff-row-del";
     }
 
     const tdOld = doc.createElement("td");
-    tdOld.style.cssText =
-      "width:44px;text-align:right;padding:0 8px;color:var(--text-muted, #64748b);user-select:none;";
+    tdOld.className = "hermes-diff-num";
     tdOld.textContent = row.oldLine !== undefined ? String(row.oldLine) : "";
 
     const tdNew = doc.createElement("td");
-    tdNew.style.cssText =
-      "width:44px;text-align:right;padding:0 8px;color:var(--text-muted, #64748b);user-select:none;";
+    tdNew.className = "hermes-diff-num";
     tdNew.textContent = row.newLine !== undefined ? String(row.newLine) : "";
 
     const tdSign = doc.createElement("td");
-    tdSign.style.cssText = "width:20px;text-align:center;user-select:none;font-weight:600;";
+    tdSign.className = `hermes-diff-sign${
+      row.kind === "add"
+        ? " hermes-diff-sign-add"
+        : row.kind === "del"
+          ? " hermes-diff-sign-del"
+          : ""
+    }`;
     tdSign.textContent = row.kind === "add" ? "+" : row.kind === "del" ? "-" : " ";
-    if (row.kind === "add") tdSign.style.color = "#10b981";
-    if (row.kind === "del") tdSign.style.color = "#ef4444";
 
     const tdCode = doc.createElement("td");
-    tdCode.style.cssText = "white-space:pre-wrap;word-break:break-word;padding:0 12px 0 4px;";
+    tdCode.className = "hermes-diff-code";
     tdCode.textContent = row.text;
 
     tr.append(tdOld, tdNew, tdSign, tdCode);

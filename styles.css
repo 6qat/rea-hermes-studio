@@ -14,6 +14,19 @@ body .workspace .hermes-studio-view-content {
   background: var(--background-secondary, #0f172a);
 }
 
+/* Chat view content element */
+.hermes-chat-content {
+  margin: 0;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  user-select: text;
+  -webkit-user-select: text;
+}
+
 /* Status-bar safe area when docked in Obsidian's right sidebar:
    Prevents Obsidian's fixed bottom-right .status-bar from obstructing
    the Hermes Studio chat input panel and action buttons. */
@@ -43,4 +56,295 @@ body .workspace .workspace-leaf-content[data-type="hermes-studio-diff-view"] > .
   border-radius: 50%;
   background: var(--color-yellow, #f59e0b);
   box-shadow: 0 0 0 2px var(--background-secondary, #0f172a);
+}
+
+/* --- Diff View Styles --- */
+.hermes-diff-content {
+  padding: 0;
+  margin: 0;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+}
+
+.hermes-diff-leaf {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--background-primary, #0b0f19);
+  color: var(--text-normal, #e2e8f0);
+  font-family: var(--font-interface, sans-serif);
+  overflow: hidden;
+}
+
+.hermes-diff-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 16px;
+  background: var(--background-secondary, #0f172a);
+  border-bottom: 1px solid var(--background-modifier-border, #1e293b);
+  flex-shrink: 0;
+}
+
+.hermes-diff-title {
+  font-weight: 600;
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hermes-diff-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.hermes-diff-stat-add {
+  color: #10b981;
+  font-weight: 600;
+}
+
+.hermes-diff-stat-del {
+  color: #ef4444;
+  font-weight: 600;
+}
+
+.hermes-diff-open-btn {
+  background: var(--interactive-accent, #6366f1);
+  color: var(--text-on-accent, #ffffff);
+  border: none;
+  border-radius: 5px;
+  padding: 4px 10px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.hermes-diff-scroll {
+  flex: 1;
+  overflow: auto;
+  padding: 8px 0;
+}
+
+.hermes-diff-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-monospace, monospace);
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+.hermes-diff-row-add {
+  background: rgba(16, 185, 129, 0.14);
+}
+
+.hermes-diff-row-del {
+  background: rgba(239, 68, 68, 0.14);
+}
+
+.hermes-diff-num {
+  width: 44px;
+  text-align: right;
+  padding: 0 8px;
+  color: var(--text-muted, #64748b);
+  user-select: none;
+}
+
+.hermes-diff-sign {
+  width: 20px;
+  text-align: center;
+  user-select: none;
+  font-weight: 600;
+}
+
+.hermes-diff-sign-add {
+  color: #10b981;
+}
+
+.hermes-diff-sign-del {
+  color: #ef4444;
+}
+
+.hermes-diff-code {
+  white-space: pre-wrap;
+  word-break: break-word;
+  padding: 0 12px 0 4px;
+}
+
+/* --- Document Preview Styles --- */
+.hermes-doc-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--background-primary, #0b0f19);
+  color: var(--text-normal, #e2e8f0);
+  font-family: var(--font-interface, sans-serif);
+  overflow: hidden;
+}
+
+.hermes-doc-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 16px;
+  background: var(--background-secondary, #0f172a);
+  border-bottom: 1px solid var(--background-modifier-border, #1e293b);
+  flex-shrink: 0;
+}
+
+.hermes-doc-header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.hermes-doc-title {
+  font-weight: 600;
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hermes-doc-badge {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 2px 6px;
+  border-radius: 4px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.hermes-doc-badge-skill {
+  background: rgba(217, 119, 6, 0.18);
+  color: #fbbf24;
+}
+
+.hermes-doc-badge-file {
+  background: rgba(99, 102, 241, 0.2);
+  color: #818cf8;
+}
+
+.hermes-doc-header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.hermes-doc-path {
+  font-size: 11px;
+  color: var(--text-muted, #94a3b8);
+  max-width: 320px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hermes-doc-open-btn {
+  background: var(--interactive-normal, #1e293b);
+  color: var(--text-normal, #e2e8f0);
+  border: 1px solid var(--background-modifier-border, #334155);
+  border-radius: 5px;
+  padding: 4px 10px;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.hermes-doc-scroll {
+  flex: 1;
+  overflow: auto;
+  padding: 20px 28px;
+}
+
+.hermes-doc-body {
+  max-width: 850px;
+  margin: 0 auto;
+  line-height: 1.65;
+  font-size: 14px;
+  color: var(--text-normal, #e2e8f0);
+}
+
+.hermes-doc-pre {
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: monospace;
+}
+
+/* --- Modals & Notice Styles --- */
+.hermes-modal-multiselect {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 70vh;
+}
+
+.hermes-modal-search {
+  width: 100%;
+  padding: 6px 10px;
+}
+
+.hermes-modal-list {
+  flex: 1;
+  overflow-y: auto;
+  max-height: 360px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 6px;
+  padding: 4px;
+}
+
+.hermes-modal-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.hermes-modal-row-label {
+  font-weight: 500;
+}
+
+.hermes-modal-row-desc {
+  color: var(--text-muted);
+  font-size: 12px;
+  margin-left: auto;
+}
+
+.hermes-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.hermes-notice-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.hermes-notice-btn-row {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+.hermes-notice-btn {
+  padding: 2px 8px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.hermes-hidden-file-input {
+  display: none !important;
 }

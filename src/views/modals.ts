@@ -64,31 +64,41 @@ export class HermesMultiPickModal extends Modal {
   onOpen(): void {
     const { contentEl, titleEl } = this;
     titleEl.textContent = this.options?.title ?? "Select files";
-    contentEl.innerHTML = "";
-    contentEl.style.cssText = "display:flex;flex-direction:column;gap:10px;max-height:70vh;";
+    if (typeof contentEl.empty === "function") {
+      contentEl.empty();
+    } else {
+      while (contentEl.firstChild) {
+        contentEl.removeChild(contentEl.firstChild);
+      }
+    }
+    contentEl.className = "hermes-modal-multiselect";
 
     const doc = contentEl.ownerDocument;
     const searchInput = doc.createElement("input");
     searchInput.type = "text";
     searchInput.placeholder = this.options?.placeHolder ?? "Type to filter files…";
-    searchInput.style.cssText = "width:100%;padding:6px 10px;";
+    searchInput.className = "hermes-modal-search";
     contentEl.appendChild(searchInput);
 
     const listEl = doc.createElement("div");
-    listEl.style.cssText =
-      "flex:1;overflow-y:auto;max-height:360px;border:1px solid var(--background-modifier-border);border-radius:6px;padding:4px;";
+    listEl.className = "hermes-modal-list";
     contentEl.appendChild(listEl);
 
     const renderList = () => {
-      listEl.innerHTML = "";
+      if (typeof (listEl as any).empty === "function") {
+        (listEl as any).empty();
+      } else {
+        while (listEl.firstChild) {
+          listEl.removeChild(listEl.firstChild);
+        }
+      }
       const q = this.filterQuery.toLowerCase().trim();
       this.items.forEach((item, idx) => {
         const text = `${item.label ?? ""} ${item.description ?? ""}`.toLowerCase();
         if (q && !text.includes(q)) return;
 
         const row = doc.createElement("label");
-        row.style.cssText =
-          "display:flex;align-items:center;gap:8px;padding:5px 8px;cursor:pointer;border-radius:4px;";
+        row.className = "hermes-modal-row";
         const cb = doc.createElement("input");
         cb.type = "checkbox";
         cb.checked = this.selected.has(idx);
@@ -98,11 +108,11 @@ export class HermesMultiPickModal extends Modal {
         });
 
         const labelSpan = doc.createElement("span");
-        labelSpan.style.cssText = "font-weight:500;";
+        labelSpan.className = "hermes-modal-row-label";
         labelSpan.textContent = item.label ?? String(item);
 
         const descSpan = doc.createElement("span");
-        descSpan.style.cssText = "color:var(--text-muted);font-size:12px;margin-left:auto;";
+        descSpan.className = "hermes-modal-row-desc";
         descSpan.textContent = item.description ?? "";
 
         row.append(cb, labelSpan, descSpan);
@@ -117,7 +127,7 @@ export class HermesMultiPickModal extends Modal {
     renderList();
 
     const footer = doc.createElement("div");
-    footer.style.cssText = "display:flex;justify-content:flex-end;gap:8px;";
+    footer.className = "hermes-modal-footer";
 
     const cancelBtn = doc.createElement("button");
     cancelBtn.textContent = "Cancel";
@@ -160,24 +170,29 @@ export async function showHermesNotice(
     let settled = false;
     const notice = new Notice("", 10000);
     const el = notice.noticeEl;
-    el.innerHTML = "";
+    if (typeof (el as any).empty === "function") {
+      (el as any).empty();
+    } else {
+      while (el.firstChild) {
+        el.removeChild(el.firstChild);
+      }
+    }
     const doc = el.ownerDocument || document;
 
     const wrap = doc.createElement("div");
-    wrap.style.cssText = "display:flex;flex-direction:column;gap:8px;";
+    wrap.className = "hermes-notice-wrap";
 
     const msgEl = doc.createElement("div");
     msgEl.textContent = message;
     wrap.appendChild(msgEl);
 
     const btnRow = doc.createElement("div");
-    btnRow.style.cssText = "display:flex;gap:6px;justify-content:flex-end;";
+    btnRow.className = "hermes-notice-btn-row";
 
     for (const action of actions) {
       const btn = doc.createElement("button");
       btn.textContent = action;
-      btn.className = "mod-cta";
-      btn.style.cssText = "padding:2px 8px;font-size:12px;cursor:pointer;";
+      btn.className = "mod-cta hermes-notice-btn";
       btn.addEventListener("click", () => {
         if (settled) return;
         settled = true;
@@ -208,7 +223,7 @@ export function showImageFileDialog(): Promise<SimpleUri[] | undefined> {
     const input = document.createElement("input");
     input.type = "file";
     input.accept = ".png,.jpg,.jpeg,.gif,.webp,image/png,image/jpeg,image/gif,image/webp";
-    input.style.display = "none";
+    input.className = "hermes-hidden-file-input";
     document.body.appendChild(input);
 
     input.addEventListener("change", () => {

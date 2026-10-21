@@ -55,92 +55,47 @@ export class HermesDocItemView extends ItemView {
     if (typeof container.empty === "function") {
       container.empty();
     } else {
-      container.innerHTML = "";
+      while (container.firstChild) {
+        container.removeChild(container.firstChild);
+      }
     }
 
     if (!this.currentPayload) return;
 
     const doc = container.ownerDocument || document;
-
-    container.style.cssText = [
-      "display:flex",
-      "flex-direction:column",
-      "height:100%",
-      "background:var(--background-primary, #0b0f19)",
-      "color:var(--text-normal, #e2e8f0)",
-      "font-family:var(--font-interface, sans-serif)",
-      "overflow:hidden",
-    ].join(";");
+    container.className = "hermes-doc-container";
 
     // Header bar
     const header = doc.createElement("div");
     header.className = "hermes-doc-header";
-    header.style.cssText = [
-      "display:flex",
-      "align-items:center",
-      "justify-content:space-between",
-      "gap:12px",
-      "padding:10px 16px",
-      "background:var(--background-secondary, #0f172a)",
-      "border-bottom:1px solid var(--background-modifier-border, #1e293b)",
-      "flex-shrink:0",
-    ].join(";");
 
     const left = doc.createElement("div");
-    left.style.cssText = "display:flex;align-items:center;gap:8px;min-width:0;overflow:hidden;";
+    left.className = "hermes-doc-header-left";
 
     const titleEl = doc.createElement("span");
     titleEl.textContent = this.currentPayload.title;
-    titleEl.style.cssText =
-      "font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;";
+    titleEl.className = "hermes-doc-title";
     left.appendChild(titleEl);
 
     const isSkill = this.currentPayload.filePath.includes("skills");
     const badgeEl = doc.createElement("span");
     badgeEl.textContent = isSkill ? "Hermes Skill" : "External File";
-    badgeEl.style.cssText = [
-      "font-size:10px",
-      "font-weight:600",
-      "text-transform:uppercase",
-      "letter-spacing:0.05em",
-      "padding:2px 6px",
-      "border-radius:4px",
-      isSkill
-        ? "background:rgba(217,119,6,0.18);color:#fbbf24"
-        : "background:rgba(99,102,241,0.2);color:#818cf8",
-      "white-space:nowrap",
-      "flex-shrink:0",
-    ].join(";");
+    badgeEl.className = `hermes-doc-badge ${isSkill ? "hermes-doc-badge-skill" : "hermes-doc-badge-file"}`;
     left.appendChild(badgeEl);
 
     const right = doc.createElement("div");
-    right.style.cssText = "display:flex;align-items:center;gap:8px;flex-shrink:0;";
+    right.className = "hermes-doc-header-right";
 
     const pathEl = doc.createElement("span");
     pathEl.textContent = this.currentPayload.filePath;
-    pathEl.style.cssText = [
-      "font-size:11px",
-      "color:var(--text-muted, #94a3b8)",
-      "max-width:320px",
-      "overflow:hidden",
-      "text-overflow:ellipsis",
-      "white-space:nowrap",
-    ].join(";");
+    pathEl.className = "hermes-doc-path";
     pathEl.title = this.currentPayload.filePath;
     right.appendChild(pathEl);
 
     const openExternalBtn = doc.createElement("button");
     openExternalBtn.type = "button";
     openExternalBtn.textContent = "Open in Default App";
-    openExternalBtn.style.cssText = [
-      "background:var(--interactive-normal, #1e293b)",
-      "color:var(--text-normal, #e2e8f0)",
-      "border:1px solid var(--background-modifier-border, #334155)",
-      "border-radius:5px",
-      "padding:4px 10px",
-      "font-size:11px",
-      "cursor:pointer",
-    ].join(";");
+    openExternalBtn.className = "hermes-doc-open-btn";
 
     const targetPath = this.currentPayload.filePath;
     openExternalBtn.addEventListener("click", () => {
@@ -161,17 +116,10 @@ export class HermesDocItemView extends ItemView {
     // Scrollable content area
     const scrollArea = doc.createElement("div");
     scrollArea.className = "hermes-doc-scroll";
-    scrollArea.style.cssText = "flex:1;overflow:auto;padding:20px 28px;";
 
     const bodyEl = doc.createElement("div");
-    bodyEl.className = "markdown-rendered markdown-preview-view markdown-rendered-external";
-    bodyEl.style.cssText = [
-      "max-width:850px",
-      "margin:0 auto",
-      "line-height:1.65",
-      "font-size:14px",
-      "color:var(--text-normal, #e2e8f0)",
-    ].join(";");
+    bodyEl.className =
+      "markdown-rendered markdown-preview-view markdown-rendered-external hermes-doc-body";
 
     if (typeof MarkdownRenderer !== "undefined" && typeof MarkdownRenderer.render === "function") {
       try {
@@ -184,13 +132,13 @@ export class HermesDocItemView extends ItemView {
         );
       } catch {
         const pre = doc.createElement("pre");
-        pre.style.cssText = "white-space:pre-wrap;word-break:break-word;font-family:monospace;";
+        pre.className = "hermes-doc-pre";
         pre.textContent = this.currentPayload.content;
         bodyEl.appendChild(pre);
       }
     } else {
       const pre = doc.createElement("pre");
-      pre.style.cssText = "white-space:pre-wrap;word-break:break-word;font-family:monospace;";
+      pre.className = "hermes-doc-pre";
       pre.textContent = this.currentPayload.content;
       bodyEl.appendChild(pre);
     }

@@ -40,11 +40,11 @@ export class HermesStudioView extends ItemView {
     if (typeof this.contentEl.empty === "function") {
       this.contentEl.empty();
     } else {
-      this.contentEl.innerHTML = "";
+      while (this.contentEl.firstChild) {
+        this.contentEl.removeChild(this.contentEl.firstChild);
+      }
     }
-    this.contentEl.classList.add("hermes-studio-view-content");
-    this.contentEl.style.cssText =
-      "margin:0;height:100%;width:100%;overflow:hidden;display:flex;flex-direction:column;box-sizing:border-box;user-select:text;-webkit-user-select:text;";
+    this.contentEl.classList.add("hermes-studio-view-content", "hermes-chat-content");
 
     this.mountShadowUi();
 
@@ -244,9 +244,11 @@ export class HermesDiffItemView extends ItemView {
     if (typeof this.contentEl.empty === "function") {
       this.contentEl.empty();
     } else {
-      this.contentEl.innerHTML = "";
+      while (this.contentEl.firstChild) {
+        this.contentEl.removeChild(this.contentEl.firstChild);
+      }
     }
-    this.contentEl.style.cssText = "padding:0;margin:0;height:100%;width:100%;overflow:hidden;";
+    this.contentEl.classList.add("hermes-studio-view-content", "hermes-diff-content");
     renderDiffIntoContainer(this.contentEl, this.currentPayload);
   }
 }

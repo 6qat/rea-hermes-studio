@@ -55,7 +55,7 @@ export function mountHermesWebview(options: HermesWebviewMountOptions): HermesWe
   const doc = shadowRoot.ownerDocument || document;
 
   // Clear any existing content inside shadowRoot
-  shadowRoot.innerHTML = "";
+  shadowRoot.replaceChildren();
 
   // 1. Inject Theme Bridge CSS + Hermes Studio Tailwind v4 Base CSS
   const styleEl = doc.createElement("style");
@@ -115,7 +115,7 @@ export function mountHermesWebview(options: HermesWebviewMountOptions): HermesWe
     destroy() {
       hostMessageListeners.clear();
       runtime?.unmount?.();
-      shadowRoot.innerHTML = "";
+      shadowRoot.replaceChildren();
     },
   };
 }
