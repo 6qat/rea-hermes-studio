@@ -1,8 +1,8 @@
 {
   "id": "hermes-studio",
   "name": "Hermes Studio",
-  "version": "0.6.17",
-  "minAppVersion": "1.5.0",
+  "version": "0.6.18",
+  "minAppVersion": "1.7.2",
   "description": "Chat with Hermes Agent — with sessions, model & mode pickers, inline diffs, skills hub, memory review, and live subagent panels.",
   "author": "Guilherme Ceschiatti (6qat)",
   "authorUrl": "https://github.com/6qat",
