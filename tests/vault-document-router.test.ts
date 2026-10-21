@@ -122,6 +122,9 @@ describe("VaultDocumentRouter", () => {
       openDocumentInObsidian: async (payload) => {
         openedFiles.push({ docPayload: payload });
       },
+      openWithDefaultApp: (p) => {
+        openedFiles.push({ defaultApp: p });
+      },
     };
 
     const router = new VaultDocumentRouter(hostAdapter);
@@ -234,6 +237,22 @@ And an explicit link [[AI/AI|Artificial Intelligence]] and fenced code:
       const res = await router.routeUri(externalFile);
       expect(res).toBe(true);
       expect(openedFiles.some((f) => f.docPayload?.filePath === externalFile)).toBe(true);
+    });
+
+    it("opens large external files (> 2MB) in default app to protect memory", async () => {
+      const { router, tmpVault, openedFiles, notices } = createTestHarness();
+      const largeFile = path.join(tmpVault, "../large-external-file.log");
+      // Create a 2.5MB file
+      fs.writeFileSync(largeFile, Buffer.alloc(2.5 * 1024 * 1024, "A"));
+
+      try {
+        const res = await router.routeUri(largeFile);
+        expect(res).toBe(true);
+        expect(openedFiles.some((f) => f.defaultApp === largeFile)).toBe(true);
+        expect(notices.some((n) => n.includes("exceeds 2MB preview limit"))).toBe(true);
+      } finally {
+        fs.rmSync(largeFile, { force: true });
+      }
     });
   });
 });

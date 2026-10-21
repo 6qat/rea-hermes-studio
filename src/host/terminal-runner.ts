@@ -76,6 +76,29 @@ export function launchExternalTerminal(opts: TerminalSpawnOptions): {
       { cwd: opts.cwd, stdio: "ignore" },
     );
     child.on("exit", () => opts.onClose?.());
+  } else if (process.platform === "win32") {
+    if (commandExists("wt.exe") || commandExists("wt")) {
+      child = childProcess.spawn("wt.exe", ["new-tab", ...fullCmd], {
+        cwd: opts.cwd,
+        env: { ...process.env, ...opts.env } as NodeJS.ProcessEnv,
+        detached: true,
+        stdio: "ignore",
+      });
+    } else {
+      child = childProcess.spawn("cmd.exe", ["/c", "start", opts.name ?? "Hermes", ...fullCmd], {
+        cwd: opts.cwd,
+        env: { ...process.env, ...opts.env } as NodeJS.ProcessEnv,
+        detached: true,
+        stdio: "ignore",
+      });
+    }
+    child.on("exit", () => opts.onClose?.());
+    child.unref?.();
+  }
+
+  if (!child) {
+    console.warn(`[Hermes Terminal] No suitable terminal emulator found on ${process.platform}.`);
+    opts.onClose?.();
   }
 
   return {

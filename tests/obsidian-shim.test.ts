@@ -176,9 +176,48 @@ describe("createObsidianVscodeShim", () => {
     expect(files.length).toBe(1);
     expect(files[0].fsPath).toBe("/mock/vault/Notes/Idea.md");
 
-    // 7. git extension uses deps.hasGit()
+    // 7. git extension uses deps.hasGit() and runs diff asynchronously
     const gitExt = shim.extensions.getExtension("vscode.git");
     expect(gitExt).toBeDefined();
     expect(gitExt?.isActive).toBe(true);
+    const repo = gitExt?.exports.getAPI().repositories[0];
+    const diffPromise = repo?.diff(false);
+    expect(diffPromise instanceof Promise).toBe(true);
+    const diffResult = await diffPromise;
+    expect(typeof diffResult).toBe("string");
+  });
+
+  it("serializes SimpleUri cleanly without duplicate leading slashes", () => {
+    const shim = createObsidianVscodeShim({
+      vaultBasePath: "/vault",
+      vaultName: "Vault",
+      getSettings: () => ({
+        path: "",
+        environment: {},
+        autoStart: false,
+        notifications: "all",
+      }),
+    });
+
+    // 1. file:// with empty authority
+    const uri1 = shim.Uri.file("/vault/test.md");
+    expect(uri1.toString()).toBe("file:///vault/test.md");
+    expect(uri1.fsPath).toBe("/vault/test.md");
+
+    // 2. custom scheme with authority
+    const uri2 = shim.Uri.from({
+      scheme: "obsidian",
+      authority: "vault",
+      path: "/open",
+      query: "file=test",
+    });
+    expect(uri2.toString()).toBe("obsidian://vault/open?file=test");
+
+    // 3. custom scheme without authority
+    const uri3 = shim.Uri.from({
+      scheme: "hermes-diff",
+      path: "/diff-1",
+    });
+    expect(uri3.toString()).toBe("hermes-diff:/diff-1");
   });
 });

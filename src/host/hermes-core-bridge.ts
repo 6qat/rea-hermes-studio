@@ -6,6 +6,7 @@ import type { createObsidianVscodeShim } from "./obsidian-shim";
 export interface ActivateHermesCoreOptions {
   vscodeShim: ReturnType<typeof createObsidianVscodeShim>;
   extensionPath: string;
+  pluginVersion?: string;
   globalStoragePath?: string;
   initialWorkspaceState?: Record<string, any>;
   onWorkspaceStateChange?: (state: Record<string, any>) => void;
@@ -60,7 +61,7 @@ export function activateHermesCore(options: ActivateHermesCoreOptions): Activate
       id: "hermes-studio",
       packageJSON: {
         name: "hermes-studio",
-        version: "0.6.8",
+        version: options.pluginVersion ?? "0.6.19",
       },
     },
   };

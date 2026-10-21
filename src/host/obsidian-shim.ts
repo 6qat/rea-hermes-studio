@@ -276,13 +276,22 @@ export class SimpleUri {
   }
 
   toString(): string {
-    if (this.scheme === "file" && this._fsPath) {
-      return url.pathToFileURL(this._fsPath).href;
+    if (this.scheme === "file") {
+      if (this._fsPath) {
+        return url.pathToFileURL(this._fsPath).href;
+      }
+      const normPath = this.path.startsWith("/") ? this.path : `/${this.path}`;
+      const q = this.query ? `?${this.query}` : "";
+      const f = this.fragment ? `#${this.fragment}` : "";
+      return this.authority
+        ? `file://${this.authority}${normPath}${q}${f}`
+        : `file://${normPath}${q}${f}`;
     }
-    const auth = this.authority ? `//${this.authority}` : "//";
+    const auth = this.authority ? `//${this.authority}` : "";
     const q = this.query ? `?${this.query}` : "";
     const f = this.fragment ? `#${this.fragment}` : "";
-    return `${this.scheme}:${auth}${this.path}${q}${f}`;
+    const normPath = this.authority && !this.path.startsWith("/") ? `/${this.path}` : this.path;
+    return `${this.scheme}:${auth}${normPath}${q}${f}`;
   }
 
   static file(fsPath: string): SimpleUri {
@@ -1083,18 +1092,26 @@ export function createObsidianVscodeShim(
               repositories: [
                 {
                   rootUri: SimpleUri.file(bridge.fs.vaultBasePath),
-                  async diff(cached: boolean): Promise<string> {
-                    try {
+                  diff(cached: boolean): Promise<string> {
+                    return new Promise((resolve) => {
                       const args = cached ? ["diff", "--cached"] : ["diff"];
-                      const res = childProcess.spawnSync("git", args, {
-                        cwd: bridge.fs.vaultBasePath,
-                        encoding: "utf8",
-                        maxBuffer: 2 * 1024 * 1024,
-                      });
-                      return res.status === 0 ? res.stdout || "" : "";
-                    } catch {
-                      return "";
-                    }
+                      childProcess.execFile(
+                        "git",
+                        args,
+                        {
+                          cwd: bridge.fs.vaultBasePath,
+                          encoding: "utf8",
+                          maxBuffer: 2 * 1024 * 1024,
+                        },
+                        (error, stdout) => {
+                          if (error) {
+                            resolve("");
+                          } else {
+                            resolve(stdout || "");
+                          }
+                        },
+                      );
+                    });
                   },
                 },
               ],

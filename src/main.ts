@@ -202,6 +202,7 @@ export default class HermesStudioPlugin extends Plugin {
     this.core = activateHermesCore({
       vscodeShim: this.vscodeShim,
       extensionPath: this.getPluginDirPath(),
+      pluginVersion: this.manifest?.version || "0.6.19",
       initialWorkspaceState: this.settings.workspaceState,
       onWorkspaceStateChange: (next) => {
         this.settings.workspaceState = next;

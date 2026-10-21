@@ -310,31 +310,51 @@ export class VaultDocumentRouter {
     multiTokenCandidates.sort((a, b) => b.key.length - a.key.length);
 
     if (multiTokenCandidates.length > 0) {
-      const updatedLines = text.split("\n");
-      for (let idx = 0; idx < updatedLines.length; idx++) {
-        let line = updatedLines[idx] ?? "";
-        if (!line.trim()) continue;
-        if (/^\s*(?:#+\s+|\*{2,3}[^*]+\*{2,3}\s*$)/.test(line)) continue;
+      const lowerText = text.toLowerCase();
+      const activeCandidates: Array<{
+        key: string;
+        targetPath: string;
+        caseSensitive: boolean;
+        regex: RegExp;
+      }> = [];
 
-        for (const cand of multiTokenCandidates) {
-          if (cand.caseSensitive) {
-            if (!line.includes(cand.key)) continue;
-          } else {
-            if (!line.toLowerCase().includes(cand.key)) continue;
-          }
-          const escaped = cand.key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-          const flags = cand.caseSensitive ? "g" : "gi";
-          const rx = new RegExp(
-            `(^|[^\\p{L}\\p{N}_/])(${escaped})(?=$|[^\\p{L}\\p{N}_/])`,
-            `${flags}u`,
-          );
-          line = line.replace(rx, (_full, pre, matchedText) => {
-            return `${pre}${savePlaceholder(makeWikiLink(matchedText, cand.targetPath))}`;
-          });
-        }
-        updatedLines[idx] = line;
+      for (const cand of multiTokenCandidates) {
+        const appearsInText = cand.caseSensitive
+          ? text.includes(cand.key)
+          : lowerText.includes(cand.key);
+        if (!appearsInText) continue;
+
+        const escaped = cand.key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        const flags = cand.caseSensitive ? "g" : "gi";
+        const regex = new RegExp(
+          `(^|[^\\p{L}\\p{N}_/])(${escaped})(?=$|[^\\p{L}\\p{N}_/])`,
+          `${flags}u`,
+        );
+        activeCandidates.push({ ...cand, regex });
       }
-      text = updatedLines.join("\n");
+
+      if (activeCandidates.length > 0) {
+        const updatedLines = text.split("\n");
+        for (let idx = 0; idx < updatedLines.length; idx++) {
+          let line = updatedLines[idx] ?? "";
+          if (!line.trim()) continue;
+          if (/^\s*(?:#+\s+|\*{2,3}[^*]+\*{2,3}\s*$)/.test(line)) continue;
+
+          for (const cand of activeCandidates) {
+            const hasMatch = cand.caseSensitive
+              ? line.includes(cand.key)
+              : line.toLowerCase().includes(cand.key);
+            if (!hasMatch) continue;
+
+            cand.regex.lastIndex = 0;
+            line = line.replace(cand.regex, (_full, pre, matchedText) => {
+              return `${pre}${savePlaceholder(makeWikiLink(matchedText, cand.targetPath))}`;
+            });
+          }
+          updatedLines[idx] = line;
+        }
+        text = updatedLines.join("\n");
+      }
     }
 
     // Restore placeholders
@@ -417,6 +437,20 @@ export class VaultDocumentRouter {
               return true;
             }
             if (stat.isFile()) {
+              const MAX_FILE_SIZE = 2 * 1024 * 1024; // 2MB preview threshold
+              if (stat.size > MAX_FILE_SIZE) {
+                if (this.host.openWithDefaultApp) {
+                  this.host.openWithDefaultApp(resolvedPath);
+                  this.host.showNotice?.(
+                    `File exceeds 2MB preview limit; opened in default app: ${path.basename(resolvedPath)}`,
+                  );
+                  return true;
+                }
+                this.host.showNotice?.(
+                  `File too large to preview (${Math.round(stat.size / 1024 / 1024)}MB): ${path.basename(resolvedPath)}`,
+                );
+                return false;
+              }
               const content = fs.readFileSync(resolvedPath, "utf8");
               const title = path.basename(resolvedPath);
               if (this.host.openDocumentInObsidian) {
@@ -426,6 +460,10 @@ export class VaultDocumentRouter {
                   content,
                   selection,
                 });
+                return true;
+              }
+              if (this.host.openWithDefaultApp) {
+                this.host.openWithDefaultApp(resolvedPath);
                 return true;
               }
             }

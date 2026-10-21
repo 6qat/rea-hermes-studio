@@ -1,6 +1,6 @@
 {
   "name": "rea-hermes-studio",
-  "version": "0.6.18",
+  "version": "0.6.19",
   "private": true,
   "description": "Hermes Studio plugin — full feature and visual parity with VSCode Hermes Studio",
   "author": "Guilherme Ceschiatti (6qat)",
