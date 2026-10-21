@@ -4,9 +4,16 @@ import process from "node:process";
 import esbuild from "esbuild";
 
 const prod = process.argv[2] === "production";
+const defaultLocalVault =
+  "/home/guiga/Insync/ceschiatti@gmail.com/Dropbox/Obsidian/Main_Vault/.obsidian/plugins/hermes-studio";
+
+// Only resolve a target vault directory if explicitly configured via OBSIDIAN_PLUGIN_DIR
+// or if the local development path exists on the current host machine (never in CI / review sandbox).
 const vaultPluginDir =
   process.env.OBSIDIAN_PLUGIN_DIR ||
-  "/home/guiga/Insync/ceschiatti@gmail.com/Dropbox/Obsidian/Main_Vault/.obsidian/plugins/hermes-studio";
+  (!process.env.CI && fs.existsSync(path.dirname(defaultLocalVault))
+    ? defaultLocalVault
+    : undefined);
 
 const nodeBuiltins = [
   "assert",
@@ -50,6 +57,9 @@ const externals = [
 ];
 
 function syncToVault() {
+  if (!vaultPluginDir) {
+    return;
+  }
   try {
     fs.mkdirSync(vaultPluginDir, { recursive: true });
     for (const file of ["manifest.json", "main.js", "styles.css"]) {
