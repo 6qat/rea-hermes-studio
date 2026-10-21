@@ -17458,16 +17458,42 @@ function J_(e, t) {
                 l = (e) => {
                   K(e, lv());
                 };
-              (J(s, (e) => {
+              J(s, (e) => {
                 H(t).notSent ? e(c) : H(t).steered && e(l, 1);
-              }),
+              });
+              var foot = z(s, 2),
+                copyBtn = I(foot),
+                copySvg = I(copyBtn),
+                copySpan = z(copySvg, 2),
+                copyText = R(copySpan, !0),
+                copyStatus = P(`idle`);
+              async function doCopy() {
+                let textToCopy = H(t).text ?? ``;
+                let ok = await Fd(textToCopy);
+                F(copyStatus, ok ? `done` : `failed`, !0);
+                setTimeout(() => F(copyStatus, `idle`), 1500);
+              }
+              (W(`click`, copyBtn, doCopy),
+                k(copyBtn),
+                k(foot),
                 k(r),
+                B(() => {
+                  let st = H(copyStatus);
+                  q(
+                    copyText,
+                    st === `done`
+                      ? `Copied`
+                      : st === `failed`
+                        ? `Copy failed`
+                        : `Copy`,
+                  );
+                }),
                 B(() =>
                   X(
                     o,
                     1,
                     Y([
-                      `max-w-full rounded-[12px_12px_3px_12px] border border-user-border bg-user-bubble px-3 py-2 wrap-break-word whitespace-pre-wrap`,
+                      `max-w-full rounded-[12px_12px_3px_12px] border border-user-border bg-user-bubble px-3 py-2 wrap-break-word whitespace-pre-wrap select-text`,
                       H(t).notSent && `opacity-60`,
                     ]),
                   ),
@@ -17651,7 +17677,7 @@ var Y_,
         `<span class="text-small text-muted">sent while Hermes worked · Hermes reads it at its next step</span>`,
       )),
       (uv = G(
-        `<div class="mt-3 ml-10 flex flex-col items-end gap-0.5 self-end first:mt-0"><!> <div></div> <!></div>`,
+        `<div class="mt-3 ml-10 flex flex-col items-end gap-0.5 self-end first:mt-0"><!> <div></div> <!> <div class="user-foot flex items-center justify-end"><button type="button" class="reply-act user-copy-btn" aria-label="Copy prompt" title="Copy prompt"><svg class="size-3" viewBox="0 0 16 16" aria-hidden="true"><rect x="5" y="5" width="8.5" height="8.5" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.3"></rect><path d="M3 10.5V3.5A1.5 1.5 0 0 1 4.5 2h6" fill="none" stroke="currentColor" stroke-width="1.3"></path></svg> <span> </span></button></div></div>`,
       )),
       (dv = G(`<div><!></div>`)),
       (fv = G(`<!> <!>`, 1)),

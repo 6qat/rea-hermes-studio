@@ -110,6 +110,8 @@ export const THEME_BRIDGE_CSS = `
   font-size: var(--vscode-font-size);
   line-height: 1.4;
   overflow: hidden;
+  user-select: text;
+  -webkit-user-select: text;
 }
 
 #hermes-studio-root[data-place="editor"] {
@@ -119,5 +121,68 @@ export const THEME_BRIDGE_CSS = `
 #app {
   width: 100%;
   height: 100%;
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+/* Ensure messages, user bubbles, assistant text, and code are copyable & selectable */
+.bg-user-bubble,
+.user-foot,
+.md,
+.code-block,
+pre,
+code,
+p,
+span,
+[role="log"],
+[role="tabpanel"] {
+  user-select: text !important;
+  -webkit-user-select: text !important;
+}
+
+/* Control elements remain non-selectable */
+button,
+[role="tab"],
+[role="button"],
+.btn,
+.icon-btn,
+.plus-btn,
+.reply-act,
+.user-copy-btn {
+  user-select: none !important;
+  -webkit-user-select: none !important;
+}
+
+/* User message copy button styling */
+.user-foot {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  color: var(--color-muted);
+  font-size: 11.5px;
+  margin-top: 2px;
+}
+
+.user-copy-btn {
+  height: 20px;
+  color: var(--color-muted);
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+  border-radius: 4px;
+  align-items: center;
+  gap: 4px;
+  padding: 0 5px;
+  display: inline-flex;
+  opacity: 0.85;
+  transition: opacity 0.15s ease, background-color 0.15s ease, color 0.15s ease;
+}
+
+.user-copy-btn:hover {
+  background: var(--color-toolbar-hover);
+  color: var(--color-fg);
+  opacity: 1;
 }
 `;

@@ -6,7 +6,7 @@
 
 > **Hermes Studio** AI chat, workspace assistant, and diff workbench brought seamlessly into **Obsidian.md**.
 
-A reverse-engineered, standalone port of the VSCode [Hermes Studio](https://marketplace.visualstudio.com/items?itemName=jefuriiij.hermes-studio) extension to Obsidian, engineered using patterns extracted from both Hermes Studio and Obsidian Copilot.
+A standalone Obsidian plugin inspired by the VSCode [Hermes Studio](https://marketplace.visualstudio.com/items?itemName=jefuriiij.hermes-studio) extension and patterns from Obsidian Copilot.
 
 ---
 
@@ -157,4 +157,4 @@ Hermes Studio is configured with `"isDesktopOnly": true` and adheres strictly to
 
 ## 📜 License
 
-MIT License. Designed and reverse-engineered with REA.
+MIT License. Inspired by Hermes Studio and Obsidian Copilot.

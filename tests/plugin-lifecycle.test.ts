@@ -299,9 +299,10 @@ describe("HermesStudioPlugin lifecycle & views", () => {
     });
     await new Promise((r) => setTimeout(r, 40));
 
-    const links = Array.from(
-      sideView.contentEl.shadowRoot!.querySelectorAll<HTMLElement>("a[data-href]"),
-    );
+    // `sideView` comes from an untyped factory (`(plugin as any).views.get(...)`), so its
+    // `shadowRoot` is `any`; type it as ShadowRoot so querySelectorAll accepts a type argument.
+    const shadowRoot = sideView.contentEl.shadowRoot as ShadowRoot;
+    const links = Array.from(shadowRoot.querySelectorAll<HTMLElement>("a[data-href]"));
     expect(links.length).toBe(8);
 
     // Click the link with parentheses ("Receita Cardiológica - SOS Cardio (junho 2026)") and the nested subpath link ("Guiga/Guiga")
@@ -310,7 +311,7 @@ describe("HermesStudioPlugin lifecycle & views", () => {
     expect(receitaLink).toBeDefined();
     expect(guigaLink).toBeDefined();
 
-    receitaLink!.click();
+    (receitaLink as HTMLElement).click();
     await new Promise((r) => setTimeout(r, 20));
     const receitaLeaf = openLeaves.find(
       (l: any) => l.view?.file?.path === "SAÚDE/Receita Cardiológica - SOS Cardio (junho 2026).md",
@@ -318,7 +319,7 @@ describe("HermesStudioPlugin lifecycle & views", () => {
     expect(receitaLeaf).toBeDefined();
     expect(receitaLeaf.currentMode).toBe("preview");
 
-    guigaLink!.click();
+    (guigaLink as HTMLElement).click();
     await new Promise((r) => setTimeout(r, 20));
     const guigaLeaf = openLeaves.find(
       (l: any) => l.view?.file?.path === "CONTENT_CREATION/Guiga/Guiga.md",

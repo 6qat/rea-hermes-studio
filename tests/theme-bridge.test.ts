@@ -96,6 +96,57 @@ describe("Shadow-DOM scoped Svelte 5 webview mount", () => {
     newChatBtn!.click();
     expect(receivedByHost.some((m) => m.type === "newChat")).toBe(true);
 
+    // 3. Host updates model with user message item
+    let clipboardText = "";
+    Object.assign(navigator, {
+      clipboard: {
+        writeText: async (t: string) => {
+          clipboardText = t;
+          return true;
+        },
+      },
+    });
+
+    instance.postMessageToWebview({
+      type: "init",
+      model: {
+        items: [
+          {
+            id: "1",
+            kind: "user",
+            text: "list todas as notas alteradas ou criadas hoje",
+            turn: 1,
+          },
+        ],
+        meta: {
+          connection: { state: "ready" },
+          busy: false,
+          turn: 1,
+          queued: [],
+          models: [],
+          model: "anthropic/claude-sonnet-4",
+          modes: [],
+          skills: [],
+          folder: "Main_Vault",
+        },
+      },
+    });
+
+    await new Promise((r) => setTimeout(r, 40));
+
+    // Verify user message bubble has copy button
+    const userCopyBtn = shadowRoot.querySelector<HTMLButtonElement>(
+      '.user-copy-btn, button[aria-label="Copy prompt"]',
+    );
+    expect(userCopyBtn).not.toBeNull();
+    expect(userCopyBtn!.textContent).toContain("Copy");
+
+    // Click user copy button and verify clipboard copy and feedback state
+    userCopyBtn!.click();
+    await new Promise((r) => setTimeout(r, 20));
+    expect(clipboardText).toBe("list todas as notas alteradas ou criadas hoje");
+    expect(userCopyBtn!.textContent).toContain("Copied");
+
     instance.destroy();
     hostEl.remove();
   });
