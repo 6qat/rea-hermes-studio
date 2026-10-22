@@ -185,4 +185,11 @@ button,
   color: var(--color-fg);
   opacity: 1;
 }
+
+/* Effort slider unsupported state */
+.effort-slider.is-unsupported {
+  opacity: 0.35 !important;
+  cursor: not-allowed !important;
+  pointer-events: none !important;
+}
 `;

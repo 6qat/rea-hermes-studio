@@ -4200,15 +4200,16 @@ function Cs(e, t) {
   return r;
 }
 var ws = o(() => {});
-function Ts(e) {
+function Ts(e, levels = Ds, supported = true) {
+  if (!supported) return `Not supported by this model`;
   return e === null || e === ``
     ? `Medium (default)`
-    : (Ds.find((t) => t.id === e)?.label ?? Os[e] ?? e);
+    : (levels.find((t) => t.id === e)?.label ?? Os[e] ?? e);
 }
-function Es(e) {
+function Es(e, levels = Ds) {
   let t = e || `medium`,
-    n = Ds.findIndex((e) => e.id === t);
-  return n >= 0 ? n + 1 : t === `minimal` ? 1 : t === `ultra` ? 5 : 0;
+    n = levels.findIndex((x) => x.id === t);
+  return n >= 0 ? n + 1 : t === `minimal` ? 1 : t === `ultra` ? levels.length : 1;
 }
 var Ds,
   Os,
@@ -5388,9 +5389,11 @@ var Hc,
       (Hc = (e, t) =>
         e.toLocaleTimeString(t, { hour: `2-digit`, minute: `2-digit` })));
   });
-function Wc(e) {
-  let t = Math.min(Xc.length, Math.max(1, Math.round(e))) - 1;
-  return Xc[t] ?? Xc[1];
+function Wc(e, count = 5) {
+  let denom = Math.max(1, count - 1);
+  let ratio = (Math.round(e) - 1) / denom;
+  let idx = Math.min(Xc.length - 1, Math.max(0, Math.round(ratio * (Xc.length - 1))));
+  return Xc[idx] ?? Xc[1];
 }
 function Gc(e) {
   switch (e) {
@@ -5402,16 +5405,17 @@ function Gc(e) {
       return `var(--vscode-focusBorder, #0078d4)`;
   }
 }
-function Kc(e) {
-  return Math.round(Math.min(1, Math.max(0, e)) * 4) + 1;
+function Kc(e, count = 5) {
+  let denom = Math.max(1, count - 1);
+  return Math.round(Math.min(1, Math.max(0, e)) * denom) + 1;
 }
-function qc(e, t = 0.07) {
+function qc(e, count = 5, t = 0.07) {
   let n = Math.min(1, Math.max(0, e)),
-    r = Zc(Kc(n));
+    r = Zc(Kc(n, count), count);
   return Math.abs(n - r) <= t ? r : n;
 }
-function Jc(e) {
-  return Zc(Math.min(5, Math.max(1, e)));
+function Jc(e, count = 5) {
+  return Zc(Math.min(count, Math.max(1, e)), count);
 }
 var Yc,
   Xc,
@@ -5425,7 +5429,7 @@ var Yc,
         Yc,
         `var(--vscode-charts-red, #f14c4c)`,
       ]),
-      (Zc = (e) => (e - 1) / 4));
+      (Zc = (e, count = 5) => (e - 1) / Math.max(1, count - 1)));
   });
 function $c(e) {
   return e
@@ -6165,13 +6169,15 @@ var $l,
 function au(e, t) {
   pt(t, !0);
   let n = jo(t, `el`, 15),
-    r = N(() => Math.max(1, Es(t.value))),
+    kLevels = N(() => (Array.isArray(t.levels) && t.levels.length > 0 ? t.levels : Ds)),
+    kSupported = N(() => t.supported !== false && H(kLevels).length > 0),
+    r = N(() => Math.max(1, Es(t.value, H(kLevels)))),
     i = P(null),
-    a = N(() => (H(i) === null ? H(r) : Kc(H(i)))),
-    o = N(() => (H(i) === null ? Jc(H(r)) : qc(H(i)))),
-    s = N(() => Wc(H(a))),
-    c = N(() => (H(i) === null ? Ts(t.value) : (Ds[H(a) - 1]?.label ?? ``))),
-    l = N(() => t.loading || t.saving),
+    a = N(() => (H(i) === null ? H(r) : Kc(H(i), H(kLevels).length))),
+    o = N(() => (H(i) === null ? Jc(H(r), H(kLevels).length) : qc(H(i), H(kLevels).length))),
+    s = N(() => Wc(H(a), H(kLevels).length)),
+    c = N(() => (H(i) === null ? Ts(t.value, H(kLevels), H(kSupported)) : (H(kLevels)[H(a) - 1]?.label ?? ``))),
+    l = N(() => t.loading || t.saving || !H(kSupported)),
     u = P(!1),
     d = !1,
     f;
@@ -6192,11 +6198,13 @@ function au(e, t) {
     return t && t.width > 0 ? (e.clientX - t.left) / t.width : 0;
   }
   function h(e) {
-    let n = Ds[e - 1];
+    if (!H(kSupported)) return;
+    let n = H(kLevels)[e - 1];
     n && e !== H(r) && t.onpick(n.id);
   }
   function g(e) {
     H(l) ||
+      !H(kSupported) ||
       e.button !== 0 ||
       (e.preventDefault(),
       n()?.focus(),
@@ -6208,7 +6216,7 @@ function au(e, t) {
   }
   function v() {
     if (H(i) === null) return;
-    let e = Kc(H(i));
+    let e = Kc(H(i), H(kLevels).length);
     (F(i, null), h(e));
   }
   function y(e) {
@@ -6216,11 +6224,11 @@ function au(e, t) {
     if (e.key === `ArrowRight`) t = H(r) + 1;
     else if (e.key === `ArrowLeft`) t = H(r) - 1;
     else if (e.key === `Home`) t = 1;
-    else if (e.key === `End`) t = Ds.length;
+    else if (e.key === `End`) t = H(kLevels).length;
     else return;
     (e.preventDefault(),
       e.stopPropagation(),
-      H(l) || h(Math.min(Ds.length, Math.max(1, t))));
+      H(l) || h(Math.min(H(kLevels).length, Math.max(1, t))));
   }
   var b = du();
   let x;
@@ -6247,14 +6255,14 @@ function au(e, t) {
   da(
     ae,
     19,
-    () => Ds,
+    () => H(kLevels),
     (e) => e.id,
     (e, t, n) => {
       var r = cu();
       let i;
       (B(() => {
         (X(r, 1, Y([`effort-stop`, H(n) < H(a) && `is-on`])),
-          (i = Ga(r, ``, i, { left: `${(H(n) / (Ds.length - 1)) * 100}%` })));
+          (i = Ga(r, ``, i, { left: `${(H(n) / Math.max(1, H(kLevels).length - 1)) * 100}%` })));
       }),
         K(e, r));
     },
@@ -6279,7 +6287,7 @@ function au(e, t) {
   (da(
     le,
     23,
-    () => Ds,
+    () => H(kLevels),
     (e) => e.id,
     (e, t, n) => {
       var r = uu();
@@ -6287,7 +6295,7 @@ function au(e, t) {
       var o = R(r, !0);
       (B(() => {
         (X(r, 1, Y([H(n) + 1 === H(a) && `is-here`])),
-          (i = Ga(r, ``, i, { left: `${(H(n) / (Ds.length - 1)) * 100}%` })),
+          (i = Ga(r, ``, i, { left: `${(H(n) / Math.max(1, H(kLevels).length - 1)) * 100}%` })),
           q(o, H(t).id === `xhigh` ? `Extra` : H(t).label));
       }),
         K(e, r));
@@ -6304,11 +6312,11 @@ function au(e, t) {
     B(() => {
       ((x = Ga(b, ``, x, { "--tone": H(s) })),
         q(te, t.loading ? `…` : H(c)),
-        Z(re, `aria-valuemax`, Ds.length),
+        Z(re, `aria-valuemax`, H(kLevels).length),
         Z(re, `aria-valuenow`, H(a)),
         Z(re, `aria-valuetext`, H(c)),
         Z(re, `aria-disabled`, H(l)),
-        X(re, 1, Y([`effort-slider`, H(l) && `is-busy`])),
+        X(re, 1, Y([`effort-slider`, H(l) && `is-busy`, !H(kSupported) && `is-unsupported`])),
         X(
           E,
           1,
@@ -6477,6 +6485,12 @@ function pu(e, t) {
     },
     get error() {
       return H(r).error;
+    },
+    get supported() {
+      return H(r).supported;
+    },
+    get levels() {
+      return H(r).levels;
     },
     onpick: (e) => $.setEffort(e),
     get el() {

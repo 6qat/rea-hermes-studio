@@ -9011,10 +9011,14 @@ var hs = class extends Error {},
         try {
           n = await this.openSession();
         } catch {
+          this.apply([{ op: "meta", patch: { model: i, modelId: e } }]);
           return !1;
         }
         let o = this.client;
-        if (!o?.alive || o.id !== n.clientId) return !1;
+        if (!o?.alive || o.id !== n.clientId) {
+          this.apply([{ op: "meta", patch: { model: i, modelId: e } }]);
+          return !1;
+        }
         if (e === this._model.meta.modelId) return !0;
         this.apply([{ op: "meta", patch: { switchingModel: i } }]);
         try {
@@ -9795,14 +9799,145 @@ function V0(t) {
 var pw = require("node:crypto"),
   Me = __vscodeShim;
 var B0 = [
+  { id: "none", label: "Off" },
+  { id: "minimal", label: "Minimal" },
   { id: "low", label: "Low" },
   { id: "medium", label: "Medium" },
   { id: "high", label: "High" },
   { id: "xhigh", label: "Extra high" },
   { id: "max", label: "Max" },
+  { id: "ultra", label: "Ultra" },
 ];
 function vs(t) {
   return typeof t == "string" && B0.some((e) => e.id === t);
+}
+function getSupportedEffortsForModel(modelId) {
+  if (!modelId) {
+    return {
+      supported: true,
+      levels: [
+        { id: "low", label: "Low" },
+        { id: "medium", label: "Medium" },
+        { id: "high", label: "High" },
+        { id: "xhigh", label: "Extra high" },
+        { id: "max", label: "Max" },
+      ],
+    };
+  }
+  let name = String(modelId).toLowerCase().trim();
+  if (name.includes("/")) name = name.split("/").pop();
+  if (name.includes(":")) name = name.split(":").pop();
+
+  // Explicit non-reasoning models
+  if (/^(?:ft:)?(?:gpt-3\.5|gpt-4(?![0-9])|chatgpt-)/.test(name)) {
+    return { supported: false, levels: [] };
+  }
+  if (/^claude-(?:3-5|3-opus|3-haiku|2)/.test(name)) {
+    return { supported: false, levels: [] };
+  }
+  if (/^gemini-(?:1\.|2\.0-flash(?!-thinking)|2\.5-flash(?!-thinking))/.test(name)) {
+    return { supported: false, levels: [] };
+  }
+  if (/^(?:llama-3|mistral-|codestral|command-r)/.test(name) && !name.includes("r1")) {
+    return { supported: false, levels: [] };
+  }
+
+  // Specific reasoning vocabularies
+  if (/(?:^|[^a-z0-9])k3(?:[^a-z0-9]|$)/.test(name) || name.startsWith("kimi-k3")) {
+    return {
+      supported: true,
+      levels: [
+        { id: "low", label: "Low" },
+        { id: "high", label: "High" },
+        { id: "max", label: "Max" },
+      ],
+    };
+  }
+  if (/^glm-5\.2\b/.test(name)) {
+    return {
+      supported: true,
+      levels: [
+        { id: "high", label: "High" },
+        { id: "max", label: "Max" },
+      ],
+    };
+  }
+  if (/^glm-5\.3\b/.test(name) || /^glm-5\b/.test(name)) {
+    return {
+      supported: true,
+      levels: [
+        { id: "low", label: "Low" },
+        { id: "medium", label: "Medium" },
+        { id: "high", label: "High" },
+        { id: "max", label: "Max" },
+      ],
+    };
+  }
+  if (/^claude-3-7/.test(name)) {
+    return {
+      supported: true,
+      levels: [
+        { id: "low", label: "Low" },
+        { id: "medium", label: "Medium" },
+        { id: "high", label: "High" },
+        { id: "max", label: "Max" },
+      ],
+    };
+  }
+  if (/^grok-4\.6\b/.test(name) || /^grok-4\.5\b/.test(name) || /^grok-4\.20/.test(name)) {
+    return {
+      supported: true,
+      levels: [
+        { id: "low", label: "Low" },
+        { id: "medium", label: "Medium" },
+        { id: "high", label: "High" },
+        { id: "xhigh", label: "Extra high" },
+      ],
+    };
+  }
+  if (/^grok-/.test(name)) {
+    return {
+      supported: true,
+      levels: [
+        { id: "low", label: "Low" },
+        { id: "medium", label: "Medium" },
+        { id: "high", label: "High" },
+      ],
+    };
+  }
+  if (/^gemini-/.test(name)) {
+    return {
+      supported: true,
+      levels: [
+        { id: "low", label: "Low" },
+        { id: "medium", label: "Medium" },
+        { id: "high", label: "High" },
+      ],
+    };
+  }
+  if (/deepseek-(?:r1|v4)/.test(name)) {
+    return {
+      supported: true,
+      levels: [
+        { id: "low", label: "Low" },
+        { id: "medium", label: "Medium" },
+        { id: "high", label: "High" },
+        { id: "max", label: "Max" },
+      ],
+    };
+  }
+
+  // Standard OpenAI / Codex / general reasoning model
+  return {
+    supported: true,
+    levels: [
+      { id: "low", label: "Low" },
+      { id: "medium", label: "Medium" },
+      { id: "high", label: "High" },
+      { id: "xhigh", label: "Extra high" },
+      { id: "max", label: "Max" },
+    ],
+  };
 }
 function cw(t) {
   let e = t.trim().split(/\r?\n/)[0]?.trim().toLowerCase() ?? "";
@@ -33523,18 +33658,27 @@ function $4(t) {
 }
 var eu = "agent.reasoning_effort",
   tu = class {
-    constructor(e, r, i) {
+    constructor(e, r, i, getModelId, syncActiveSession) {
       this.run = e;
       this.publish = r;
       this.log = i;
+      this.getModelId = getModelId;
+      this.syncActiveSession = syncActiveSession;
     }
     run;
     publish;
     log;
+    getModelId;
+    syncActiveSession;
     state = { value: null, loading: !1, saving: !1 };
     read = !1;
     get snapshot() {
-      return this.state;
+      let modelId = this.getModelId?.();
+      let profile = getSupportedEffortsForModel(modelId);
+      return { ...this.state, ...profile };
+    }
+    publishProfile() {
+      this.publish(this.snapshot);
     }
     async refresh() {
       let e = this.run();
@@ -33555,10 +33699,17 @@ var eu = "agent.reasoning_effort",
       let i = this.state.value;
       this.update({ saving: !0, value: e, error: void 0 });
       let n = await r(["config", "set", "--force", eu, e]).catch((o) => xT(o));
-      if (n.code === 0)
-        (this.log(`[ext] effort set to ${e} (from the next new chat)`),
+      if (n.code === 0) {
+        (this.log(`[ext] effort set to ${e}`),
           this.update({ saving: !1 }));
-      else {
+        try {
+          if (this.syncActiveSession) {
+            await this.syncActiveSession();
+          }
+        } catch (err) {
+          this.log(`[ext] note: effort will apply on next turn or new chat: ${err}`);
+        }
+      } else {
         let o = ST(n.stderr) || `exit ${n.code}`;
         (this.log(`[ext] hermes config set ${eu} ${e}: ${o}`),
           this.update({
@@ -33570,7 +33721,10 @@ var eu = "agent.reasoning_effort",
     }
     update(e) {
       let r = { ...this.state, ...e };
-      (r.error === void 0 && delete r.error, (this.state = r), this.publish(r));
+      (r.error === void 0 && delete r.error, (this.state = r));
+      let modelId = this.getModelId?.();
+      let profile = getSupportedEffortsForModel(modelId);
+      this.publish({ ...r, ...profile });
     }
   };
 function ST(t) {
@@ -35060,6 +35214,14 @@ function J4(t) {
       },
       (x) => s?.post({ type: "effort", effort: x }),
       n,
+      () => l.model.meta.modelId || l.model.meta.model,
+      async () => {
+        let currentModel = l.model.meta.modelId || l.model.meta.model;
+        if (currentModel && l.client?.alive && l.session?.id && !l.turn) {
+          await l.client.setModel(l.session.id, currentModel);
+          n(`[ext] synced active session with effort ${T.state.value}`);
+        }
+      },
     ),
     $ = new Ql(y, n),
     P = new Xl({
@@ -35331,7 +35493,13 @@ function J4(t) {
   a = ie;
   let G = l.onChange(() => ie.looked()),
     re,
+    lastEffortModelId,
     ae = l.onChange((x, F) => {
+      let currentModelId = F.meta.modelId || F.meta.model;
+      if (currentModelId !== lastEffortModelId) {
+        lastEffortModelId = currentModelId;
+        T.publishProfile();
+      }
       let he = {
           busy: F.meta.busy,
           ...(F.meta.modelId ? { modelId: F.meta.modelId } : {}),

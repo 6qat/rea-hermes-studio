@@ -289,4 +289,87 @@ describe("Hermes Core Host <-> Shadow DOM Svelte 5 Webview Integration", () => {
     await core.deactivate();
     fs.rmSync(tmpVault, { recursive: true, force: true });
   });
+
+  it("publishes dynamic effort levels and supported flags based on active model", async () => {
+    const tmpVault = fs.mkdtempSync(path.join(os.tmpdir(), "hermes-effort-vault-"));
+
+    const shim = createObsidianVscodeShim({
+      vaultBasePath: tmpVault,
+      vaultName: "EffortVault",
+      getSettings: () => ({
+        path: "/nonexistent/hermes-binary-for-unit-test",
+        environment: {},
+        autoStart: false,
+        notifications: "all",
+      }),
+    });
+
+    const core = activateHermesCore({
+      vscodeShim: shim,
+      extensionPath: tmpVault,
+    });
+
+    const provider = shim._internal.getWebviewViewProvider();
+    const hostToWebviewMessages: any[] = [];
+    let webviewReceiveCallback: ((msg: any) => void) | undefined;
+
+    provider.resolveWebviewView({
+      visible: true,
+      badge: undefined,
+      webview: {
+        options: {},
+        html: "",
+        cspSource: "self",
+        asWebviewUri: (u: any) => u,
+        onDidReceiveMessage: (cb: (msg: any) => void) => {
+          webviewReceiveCallback = cb;
+          return { dispose() {} };
+        },
+        postMessage: async (msg: any) => {
+          hostToWebviewMessages.push(msg);
+          return true;
+        },
+      },
+      onDidChangeVisibility: () => ({ dispose() {} }),
+      onDidDispose: () => ({ dispose() {} }),
+    });
+
+    webviewReceiveCallback?.({ type: "ready" });
+    await new Promise((r) => setTimeout(r, 30));
+
+    // Initial effort message without a model selected defaults to standard reasoning ladder
+    const initialEffort = hostToWebviewMessages.find((m) => m.type === "effort");
+    expect(initialEffort).toBeDefined();
+    expect(initialEffort?.effort?.supported).toBe(true);
+    expect(initialEffort?.effort?.levels).toHaveLength(5);
+
+    // Switch model to Moonshot Kimi K3 -> exactly 3 levels (low, high, max)
+    webviewReceiveCallback?.({ type: "setModel", modelId: "moonshot/kimi-k3" });
+    await new Promise((r) => setTimeout(r, 30));
+    const kimiEffort = hostToWebviewMessages.filter((m) => m.type === "effort").at(-1);
+    expect(kimiEffort?.effort?.supported).toBe(true);
+    expect(kimiEffort?.effort?.levels.map((l: any) => l.id)).toEqual(["low", "high", "max"]);
+
+    // Switch model to Claude 3.7 Sonnet -> 4 levels (low, medium, high, max)
+    webviewReceiveCallback?.({ type: "setModel", modelId: "anthropic/claude-3-7-sonnet" });
+    await new Promise((r) => setTimeout(r, 30));
+    const claudeEffort = hostToWebviewMessages.filter((m) => m.type === "effort").at(-1);
+    expect(claudeEffort?.effort?.supported).toBe(true);
+    expect(claudeEffort?.effort?.levels.map((l: any) => l.id)).toEqual([
+      "low",
+      "medium",
+      "high",
+      "max",
+    ]);
+
+    // Switch model to non-reasoning GPT-4o -> supported: false, levels: []
+    webviewReceiveCallback?.({ type: "setModel", modelId: "openai/gpt-4o" });
+    await new Promise((r) => setTimeout(r, 30));
+    const gpt4oEffort = hostToWebviewMessages.filter((m) => m.type === "effort").at(-1);
+    expect(gpt4oEffort?.effort?.supported).toBe(false);
+    expect(gpt4oEffort?.effort?.levels).toEqual([]);
+
+    await core.deactivate();
+    fs.rmSync(tmpVault, { recursive: true, force: true });
+  });
 });

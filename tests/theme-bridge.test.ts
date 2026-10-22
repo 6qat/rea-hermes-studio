@@ -150,4 +150,84 @@ describe("Shadow-DOM scoped Svelte 5 webview mount", () => {
     instance.destroy();
     hostEl.remove();
   });
+
+  it("opens the mode and effort combobox popover and renders dynamic effort levels", async () => {
+    const hostEl = document.createElement("div");
+    document.body.appendChild(hostEl);
+    const shadowRoot = hostEl.attachShadow({ mode: "open" });
+
+    const receivedByHost: any[] = [];
+    const instance = mountHermesWebview({
+      shadowRoot,
+      place: "side",
+      onMessageFromWebview: (msg) => {
+        receivedByHost.push(msg);
+      },
+    });
+
+    instance.postMessageToWebview({
+      type: "init",
+      model: {
+        items: [],
+        meta: {
+          connection: { state: "ready" },
+          busy: false,
+          turn: 0,
+          queued: [],
+          models: [{ id: "moonshot/kimi-k3", label: "Kimi K3" }],
+          model: "moonshot/kimi-k3",
+          modes: [
+            { id: "default", name: "Manual" },
+            { id: "accept_edits", name: "Edit Automatically" },
+            { id: "dont_ask", name: "Auto" },
+          ],
+          mode: "default",
+          skills: [],
+          folder: "Main_Vault",
+        },
+      },
+    });
+
+    instance.postMessageToWebview({
+      type: "effort",
+      effort: {
+        value: "high",
+        supported: true,
+        levels: [
+          { id: "low", label: "Low" },
+          { id: "high", label: "High" },
+          { id: "max", label: "Max" },
+        ],
+      },
+    });
+
+    await new Promise((r) => setTimeout(r, 40));
+
+    // Find the Mode and effort combobox button in composer
+    const modeBtn = shadowRoot.querySelector<HTMLButtonElement>(
+      'button[aria-label^="Mode and effort:"]',
+    );
+    expect(modeBtn).not.toBeNull();
+
+    // Click to open the combobox menu
+    modeBtn!.click();
+    await new Promise((r) => setTimeout(r, 40));
+
+    // Verify the popover opened and contains the 3 modes
+    const modeOptions = shadowRoot.querySelectorAll('[role="menuitemcheckbox"], [aria-checked]');
+    expect(modeOptions.length).toBeGreaterThanOrEqual(3);
+
+    // Verify the effort slider is rendered inside the popover without crashing
+    const slider = shadowRoot.querySelector<HTMLElement>('[role="slider"][aria-label="Effort"]');
+    expect(slider).not.toBeNull();
+    expect(slider!.getAttribute("aria-valuemax")).toBe("3");
+    expect(slider!.getAttribute("aria-valuenow")).toBe("2"); // 'high' is index 2 in [low, high, max]
+
+    // Verify 3 stop marks and 3 stop labels are rendered
+    const stopDots = slider!.querySelectorAll(".effort-stop");
+    expect(stopDots.length).toBe(3);
+
+    instance.destroy();
+    hostEl.remove();
+  });
 });
