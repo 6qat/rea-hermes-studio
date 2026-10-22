@@ -40,7 +40,13 @@ export interface VaultRouterHostAdapter {
     action?: any,
     openViewState?: any,
   ) => Promise<any> | any;
-  openDocumentInObsidian?: (payload: DocumentOpenPayload) => Promise<void>;
+  leafHost?: {
+    reveal(
+      viewType: string,
+      options?: { placement?: "right" | "tab"; bind?: (view: any) => void },
+    ): Promise<void>;
+  };
+  externalDocumentViewType?: string;
   showInFolder?: (absPath: string) => void;
   openWithDefaultApp?: (absPath: string) => void;
   showNotice?: (message: string) => void;
@@ -453,12 +459,19 @@ export class VaultDocumentRouter {
               }
               const content = fs.readFileSync(resolvedPath, "utf8");
               const title = path.basename(resolvedPath);
-              if (this.host.openDocumentInObsidian) {
-                await this.host.openDocumentInObsidian({
-                  title,
-                  filePath: resolvedPath,
-                  content,
-                  selection,
+              if (this.host.leafHost && this.host.externalDocumentViewType) {
+                await this.host.leafHost.reveal(this.host.externalDocumentViewType, {
+                  placement: "tab",
+                  bind: (view) => {
+                    if (typeof view?.setDocPayload === "function") {
+                      view.setDocPayload({
+                        title,
+                        filePath: resolvedPath,
+                        content,
+                        selection,
+                      });
+                    }
+                  },
                 });
                 return true;
               }

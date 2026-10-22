@@ -119,9 +119,17 @@ describe("VaultDocumentRouter", () => {
       showNotice: (msg: string) => {
         notices.push(msg);
       },
-      openDocumentInObsidian: async (payload) => {
-        openedFiles.push({ docPayload: payload });
+      leafHost: {
+        reveal: async (_viewType: string, options?: { bind?: (view: any) => void }) => {
+          const view = {
+            setDocPayload: (payload: any) => {
+              openedFiles.push({ docPayload: payload });
+            },
+          };
+          options?.bind?.(view);
+        },
       },
+      externalDocumentViewType: "hermes-studio-doc-view",
       openWithDefaultApp: (p) => {
         openedFiles.push({ defaultApp: p });
       },
@@ -231,7 +239,7 @@ And an explicit link [[AI/AI|Artificial Intelligence]] and fenced code:
       expect(openLeaves[0].getCursor()).toEqual({ line: 41, ch: 0 });
     });
 
-    it("opens external files via openDocumentInObsidian", async () => {
+    it("opens external files through the leaf host", async () => {
       const { router, externalFile, openedFiles } = createTestHarness();
 
       const res = await router.routeUri(externalFile);

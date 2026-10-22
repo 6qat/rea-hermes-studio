@@ -36,6 +36,14 @@ _Avoid_: EditorTracker, SessionState
 The adapter handling retrieval and asynchronous persistence of extension configuration and user settings.
 _Avoid_: ConfigManager, SettingsStore
 
+**Vault Click Port**:
+The module that decides whether a webview navigation message is handled by VaultDocumentRouter or forwarded to the core. `checkPaths` is answered here and is not forwarded.
+_Avoid_: MessageFilter, LinkDispatcher, ClickHandler
+
+**Workspace Leaf Host**:
+The module that reuses or creates one workspace leaf for a view type, reveals it, and binds a payload. Side, editor, diff, and external-document opens share this module.
+_Avoid_: LeafManager, ViewService, TabHelper
+
 **Prompt History Buffer**:
 The bounded, persisted queue of sent user chat prompts navigable in the composer input field via `ArrowUp` and `ArrowDown`.
 _Avoid_: CommandHistory, InputStack, ChatRecallQueue

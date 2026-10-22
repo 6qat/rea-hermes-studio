@@ -12,6 +12,7 @@ import { type ActivatedHermesCore, activateHermesCore } from "./host/hermes-core
 import { VaultNoteTracker } from "./host/note-tracker";
 import { createObsidianVscodeShim, SimpleUri } from "./host/obsidian-shim";
 import { VaultDocumentRouter } from "./host/vault-document-router";
+import { createWorkspaceLeafHost, type WorkspaceLeafHost } from "./host/workspace-leaf-host";
 import { DEFAULT_HERMES_SETTINGS, type HermesPluginSettings, HermesSettingTab } from "./settings";
 import {
   HERMES_DIFF_VIEW_TYPE,
@@ -44,6 +45,7 @@ export default class HermesStudioPlugin extends Plugin {
   vscodeShim!: ReturnType<typeof createObsidianVscodeShim>;
   noteTracker!: VaultNoteTracker;
   router!: VaultDocumentRouter;
+  leaves!: WorkspaceLeafHost;
   private core: ActivatedHermesCore | undefined;
   private ribbonEl: HTMLElement | undefined;
   private activeSideView: HermesStudioView | undefined;
@@ -76,6 +78,7 @@ export default class HermesStudioPlugin extends Plugin {
     const vaultBasePath = this.getVaultBasePath();
     const vaultName = this.app?.vault?.getName?.() || path.basename(vaultBasePath);
 
+    this.leaves = createWorkspaceLeafHost(() => this.app?.workspace);
     this.router = new VaultDocumentRouter({
       getVaultBasePath: () => this.getVaultBasePath(),
       getFiles: () => this.app?.vault?.getFiles?.() ?? [],
@@ -91,7 +94,8 @@ export default class HermesStudioPlugin extends Plugin {
       setActiveLeaf: (leaf, params) => this.app?.workspace?.setActiveLeaf?.(leaf, params),
       openLinkText: (linktext, sourcePath, action, openViewState) =>
         this.app?.workspace?.openLinkText?.(linktext, sourcePath, action, openViewState),
-      openDocumentInObsidian: (payload) => this.openDocumentInObsidian(payload),
+      leafHost: this.leaves,
+      externalDocumentViewType: HERMES_DOC_VIEW_TYPE,
       showInFolder: (absPath) => (this.app as any)?.showInFolder?.(absPath),
       openWithDefaultApp: (absPath) => (this.app as any)?.openWithDefaultApp?.(absPath),
       showNotice: (msg) => new Notice(msg),
@@ -133,13 +137,13 @@ export default class HermesStudioPlugin extends Plugin {
       },
       ui: {
         revealSideView: async () => {
-          await this.activateSideView();
+          await this.leaves.reveal(HERMES_SIDE_VIEW_TYPE, { placement: "right" });
         },
         createEditorWebviewPanel: () => {
           if (this.activeEditorView) {
             return this.activeEditorView.toVscodeWebviewAdapter();
           }
-          void this.openEditorViewLeaf();
+          void this.leaves.reveal(HERMES_EDITOR_VIEW_TYPE, { placement: "tab" });
           return { _asyncAdopt: true };
         },
         openFileInObsidian: async (absPath, selection) => {
@@ -154,13 +158,23 @@ export default class HermesStudioPlugin extends Plugin {
               : leftUri.scheme === "file"
                 ? leftUri.fsPath
                 : undefined;
-          await this.openDiffLeaf({
-            title,
-            beforeText,
-            afterText,
-            filePath,
-            onOpenFile: (fp, line) => {
-              void this.openVaultFile(fp, line ? { startLine: line, endLine: line } : undefined);
+          await this.leaves.reveal(HERMES_DIFF_VIEW_TYPE, {
+            placement: "tab",
+            bind: (view) => {
+              if (typeof view?.setDiffPayload === "function") {
+                view.setDiffPayload({
+                  title,
+                  beforeText,
+                  afterText,
+                  filePath,
+                  onOpenFile: (fp: string, line?: number) => {
+                    void this.openVaultFile(
+                      fp,
+                      line ? { startLine: line, endLine: line } : undefined,
+                    );
+                  },
+                });
+              }
             },
           });
         },
@@ -231,7 +245,7 @@ export default class HermesStudioPlugin extends Plugin {
 
     // Add Ribbon Icon
     this.ribbonEl = this.addRibbonIcon("hermes-studio", "Hermes Studio", () => {
-      void this.activateSideView();
+      void this.leaves.reveal(HERMES_SIDE_VIEW_TYPE, { placement: "right" });
     });
 
     // Add Settings Tab
@@ -291,85 +305,6 @@ export default class HermesStudioPlugin extends Plugin {
       count > 0 ? `Hermes Studio (${tooltip})` : "Hermes Studio",
     );
     this.ribbonEl.toggleClass?.("hermes-has-badge", count > 0);
-  }
-
-  async activateSideView(): Promise<void> {
-    const { workspace } = this.app;
-    let leaf = workspace.getLeavesOfType(HERMES_SIDE_VIEW_TYPE)[0];
-    if (!leaf) {
-      leaf = workspace.getRightLeaf(false) ?? workspace.getLeaf(false);
-      await leaf?.setViewState({
-        type: HERMES_SIDE_VIEW_TYPE,
-        active: true,
-      });
-    }
-    if (leaf) {
-      await workspace.revealLeaf(leaf);
-    }
-  }
-
-  async openEditorViewLeaf(): Promise<void> {
-    const { workspace } = this.app;
-    let leaf = workspace.getLeavesOfType(HERMES_EDITOR_VIEW_TYPE)[0];
-    if (!leaf) {
-      leaf = workspace.getLeaf("tab");
-      await leaf?.setViewState({
-        type: HERMES_EDITOR_VIEW_TYPE,
-        active: true,
-      });
-    }
-    if (leaf) {
-      await workspace.revealLeaf(leaf);
-    }
-  }
-
-  async openDiffLeaf(payload: {
-    title: string;
-    beforeText: string;
-    afterText: string;
-    filePath?: string;
-    onOpenFile?: (filePath: string, line?: number) => void;
-  }): Promise<void> {
-    const { workspace } = this.app;
-    let leaf = workspace.getLeavesOfType(HERMES_DIFF_VIEW_TYPE)[0];
-    if (!leaf) {
-      leaf = workspace.getLeaf("tab");
-      await leaf?.setViewState({
-        type: HERMES_DIFF_VIEW_TYPE,
-        active: true,
-      });
-    }
-    if (leaf) {
-      await workspace.revealLeaf(leaf);
-      const view = (leaf as any).view;
-      if (view instanceof HermesDiffItemView || typeof view?.setDiffPayload === "function") {
-        view.setDiffPayload(payload);
-      }
-    }
-  }
-
-  public async openDocumentInObsidian(payload: {
-    title: string;
-    filePath: string;
-    content: string;
-    selection?: { startLine: number; endLine: number };
-  }): Promise<void> {
-    const { workspace } = this.app;
-    let leaf = workspace.getLeavesOfType(HERMES_DOC_VIEW_TYPE)[0];
-    if (!leaf) {
-      leaf = workspace.getLeaf("tab");
-      await leaf?.setViewState({
-        type: HERMES_DOC_VIEW_TYPE,
-        active: true,
-      });
-    }
-    if (leaf) {
-      await workspace.revealLeaf(leaf);
-      const view = (leaf as any).view;
-      if (view instanceof HermesDocItemView || typeof view?.setDocPayload === "function") {
-        view.setDocPayload(payload);
-      }
-    }
   }
 
   private resolveVaultWikiLink(linkpath: string, sourcePath = ""): string | undefined {
@@ -486,7 +421,7 @@ export default class HermesStudioPlugin extends Plugin {
             .setIcon("hermes-studio")
             .onClick(async () => {
               this.refreshTrackerFromWorkspace();
-              await this.activateSideView();
+              await this.leaves.reveal(HERMES_SIDE_VIEW_TYPE, { placement: "right" });
               this.activeSideView?.notifyAddContext("selection");
             });
         });
@@ -500,7 +435,7 @@ export default class HermesStudioPlugin extends Plugin {
         id: "open-chat",
         name: "Open Chat",
         run: async () => {
-          await this.activateSideView();
+          await this.leaves.reveal(HERMES_SIDE_VIEW_TYPE, { placement: "right" });
           await this.executeHermesCommand("hermesStudio.openChat");
         },
       },
@@ -508,7 +443,7 @@ export default class HermesStudioPlugin extends Plugin {
         id: "open-chat-in-editor",
         name: "Open Chat in Editor Tab",
         run: async () => {
-          await this.openEditorViewLeaf();
+          await this.leaves.reveal(HERMES_EDITOR_VIEW_TYPE, { placement: "tab" });
         },
       },
       {
@@ -516,14 +451,14 @@ export default class HermesStudioPlugin extends Plugin {
         name: "Move Chat to Side Bar",
         run: async () => {
           await this.executeHermesCommand("hermesStudio.moveChatToSidebar");
-          await this.activateSideView();
+          await this.leaves.reveal(HERMES_SIDE_VIEW_TYPE, { placement: "right" });
         },
       },
       {
         id: "new-chat",
         name: "New Chat",
         run: async () => {
-          await this.activateSideView();
+          await this.leaves.reveal(HERMES_SIDE_VIEW_TYPE, { placement: "right" });
           await this.executeHermesCommand("hermesStudio.newChat");
         },
       },
@@ -531,7 +466,7 @@ export default class HermesStudioPlugin extends Plugin {
         id: "show-sessions",
         name: "Show Sessions / Past Chats",
         run: async () => {
-          await this.activateSideView();
+          await this.leaves.reveal(HERMES_SIDE_VIEW_TYPE, { placement: "right" });
           await this.executeHermesCommand("hermesStudio.showSessions");
         },
       },

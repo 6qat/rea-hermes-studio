@@ -1,5 +1,6 @@
 import { ItemView, type WorkspaceLeaf } from "obsidian";
 import { SimpleEventEmitter, type SimpleUri } from "../host/obsidian-shim";
+import { resolveVaultClick } from "../host/vault-click-port";
 import type HermesStudioPlugin from "../main";
 import { type HermesWebviewMounted, mountHermesWebview } from "../webview/webview-mount";
 import { type DiffViewPayload, renderDiffIntoContainer } from "./hermes-diff-view";
@@ -69,39 +70,9 @@ export class HermesStudioView extends ItemView {
       shadowRoot,
       place: this.place,
       onMessageFromWebview: async (msg) => {
-        if (msg?.type === "checkPaths" && Array.isArray(msg.paths)) {
-          const known: Record<string, boolean> = {};
-          for (const p of msg.paths) {
-            if (typeof p === "string") {
-              known[p] = this.plugin.router.isPathKnown(p);
-            }
-          }
-          this.mounted?.postMessageToWebview({ type: "paths", known });
-          this.receiveEmitter.fire(msg);
-          return;
-        }
-
-        if (msg?.type === "openFile" && msg.path) {
-          const selection = msg.line ? { startLine: msg.line, endLine: msg.line } : undefined;
-          const opened = await this.plugin.router.routeUri(
-            msg.path,
-            selection ? { selection } : undefined,
-          );
-          if (opened) return;
-        }
-
-        if (msg?.type === "openLink" && msg.href) {
-          if (
-            msg.href.startsWith("obsidian://") ||
-            msg.href.startsWith("file://") ||
-            msg.href.startsWith("wikilink://") ||
-            !/^[a-z]+:\/\//i.test(msg.href)
-          ) {
-            const opened = await this.plugin.router.routeUri(msg.href);
-            if (opened) return;
-          }
-        }
-
+        const resolution = await resolveVaultClick(msg, this.plugin.router);
+        if (resolution.reply) this.mounted?.postMessageToWebview(resolution.reply);
+        if (resolution.disposition === "handled") return;
         this.receiveEmitter.fire(msg);
       },
       getState: () => this.plugin.settings.webviewState,
