@@ -6363,7 +6363,7 @@ function pu(e, t) {
     i = Ln([]);
   $.refreshEffort();
   function a(e) {
-    (e !== t.meta.mode && Q({ type: `setMode`, modeId: e }), t.onclose(`pick`));
+    (Q({ type: `setMode`, modeId: e }), t.onclose(`pick`));
   }
   function o() {
     let e = Math.max(

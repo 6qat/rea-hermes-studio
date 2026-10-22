@@ -210,6 +210,11 @@ export default class HermesStudioPlugin extends Plugin {
       },
       resolvePromptWikiLinks: (text) => this.noteTracker.resolvePromptWikiLinks(text),
       getCustomEnv: () => this.settings.environment ?? {},
+      initialMode: this.settings.modeId ?? "default",
+      onModeChange: (modeId) => {
+        this.settings.modeId = modeId as any;
+        void this.saveData(this.settings);
+      },
     });
 
     // Register Obsidian workspace views
@@ -273,6 +278,10 @@ export default class HermesStudioPlugin extends Plugin {
       provider.adopt(adapter);
       view.notifyReady();
     }
+  }
+
+  async setMode(modeId: string): Promise<void> {
+    await this.core?.setMode?.(modeId);
   }
 
   updateRibbonBadge(count: number, tooltip: string): void {

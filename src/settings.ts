@@ -6,6 +6,7 @@ export interface HermesPluginSettings {
   environment: Record<string, string>;
   autoStart: boolean;
   notifications: "all" | "permissions" | "off";
+  modeId: "default" | "accept_edits" | "dont_ask";
   trace: boolean;
   statusBarPadding: number;
   webviewState?: any;
@@ -17,6 +18,7 @@ export const DEFAULT_HERMES_SETTINGS: HermesPluginSettings = {
   environment: {},
   autoStart: true,
   notifications: "all",
+  modeId: "default",
   trace: false,
   statusBarPadding: 14,
   webviewState: undefined,
@@ -85,6 +87,24 @@ export class HermesSettingTab extends PluginSettingTab {
         btn.setButtonText("Restart Hermes").onClick(() => {
           this.plugin.executeHermesCommand("hermesStudio.restart");
         }),
+      );
+
+    new Setting(containerEl)
+      .setName("File edit confirmation")
+      .setDesc(
+        "Choose how Hermes edits files: Manual (asks before each edit), Edit automatically (edits notes in this vault automatically), or Auto (edits all files automatically).",
+      )
+      .addDropdown((drop) =>
+        drop
+          .addOption("default", "Manual (asks before each file edit)")
+          .addOption("accept_edits", "Edit automatically (notes in this vault)")
+          .addOption("dont_ask", "Auto (all files everywhere)")
+          .setValue(this.plugin.settings.modeId ?? "default")
+          .onChange(async (value) => {
+            this.plugin.settings.modeId = value as any;
+            await this.plugin.saveSettings("modeId");
+            void this.plugin.setMode(value);
+          }),
       );
 
     new Setting(containerEl)

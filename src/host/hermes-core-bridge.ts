@@ -12,11 +12,14 @@ export interface ActivateHermesCoreOptions {
   onWorkspaceStateChange?: (state: Record<string, any>) => void;
   resolvePromptWikiLinks?: (promptText: string) => string[];
   getCustomEnv?: () => Record<string, string>;
+  initialMode?: string;
+  onModeChange?: (modeId: string) => void;
 }
 
 export interface ActivatedHermesCore {
   subscriptions: Array<{ dispose?: () => any }>;
   workspaceStateData: Record<string, any>;
+  setMode: (modeId: string) => Promise<void>;
   deactivate: () => Promise<void>;
 }
 
@@ -69,6 +72,8 @@ export function activateHermesCore(options: ActivateHermesCoreOptions): Activate
   const mod = createHermesExtensionModule(vscodeShim, {
     resolvePromptWikiLinks: options.resolvePromptWikiLinks,
     getCustomEnv: options.getCustomEnv,
+    getInitialMode: () => options.initialMode ?? "default",
+    onModeChange: options.onModeChange,
   });
 
   mod.activate(extContext);
@@ -76,6 +81,9 @@ export function activateHermesCore(options: ActivateHermesCoreOptions): Activate
   return {
     subscriptions,
     workspaceStateData,
+    async setMode(modeId: string) {
+      await mod.setMode?.(modeId);
+    },
     async deactivate() {
       try {
         await mod.deactivate?.();

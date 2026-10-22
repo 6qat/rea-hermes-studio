@@ -1,5 +1,6 @@
 // Auto-generated Hermes Studio host core for Obsidian (from v0.6.0)
 export function createHermesExtensionModule(__vscodeShim, __hostHooks = {}) {
+var __activeController;
 var t0 = Object.create;
 var os = Object.defineProperty;
 var n0 = Object.getOwnPropertyDescriptor;
@@ -7266,7 +7267,12 @@ function fi(t, e, r) {
 function Sb() {
   return {
     items: [],
-    meta: { connection: { state: "idle" }, busy: !1, turn: 0 },
+    meta: {
+      connection: { state: "idle" },
+      busy: !1,
+      turn: 0,
+      mode: __hostHooks?.getInitialMode?.() ?? "default",
+    },
   };
 }
 function cs(t, e) {
@@ -7521,8 +7527,14 @@ var ls = class {
     r && ((this.chars -= r.data.length), this.map.delete(e));
   }
 };
-function Ab(t, e) {
-  return [{ type: "text", text: t }, ...e.map((r) => r.block)];
+function Ab(t, e, mode = "default") {
+  let hint =
+    mode === "default"
+      ? "[Hermes Studio: File edit mode is Manual. You must use write_file or patch for all note and file changes so the user can review and approve them before they are written. Do not use execute_code, python scripts, or terminal commands to create or mutate vault files.]"
+      : mode === "accept_edits"
+        ? "[Hermes Studio: File edit mode is Edit Automatically. Note and file changes in this vault are approved automatically.]"
+        : "[Hermes Studio: File edit mode is Auto. All file changes are approved automatically.]";
+  return [{ type: "text", text: `${t}\n\n${hint}` }, ...e.map((r) => r.block)];
 }
 var g0 = [
     [/^(.+?) rate-limited every one of \d+ attempts\b/, "limit"],
@@ -8555,7 +8567,7 @@ var hs = class extends Error {},
           throw new Error("Hermes restarted");
         ((b.state = "active"), (b.sessionId = v.id), (a = !0));
         let I = i.length ? vu(i, n) : n,
-          T = await y.prompt(v.id, Ab(I, r)),
+          T = await y.prompt(v.id, Ab(I, r, this._model.meta.mode ?? "default")),
           $ = this.currentTurn(l);
         if ($) {
           this.onPromptResolved(T);
@@ -8917,6 +8929,13 @@ var hs = class extends Error {},
                 { state: "ready" },
                 { ...Pu(a), folder: n.name, sessionId: e },
               ));
+            let targetMode = __hostHooks?.getInitialMode?.() ?? this._model.meta.mode ?? "default";
+            try {
+              await o.setMode(e, targetMode);
+              this.apply([{ op: "meta", patch: { mode: targetMode } }]);
+            } catch (err) {
+              console.warn("[Hermes] Failed to sync mode in loadSession:", err);
+            }
           } catch (a) {
             if (
               (this.loading === s && (this.loading = void 0),
@@ -9034,9 +9053,10 @@ var hs = class extends Error {},
       ((this.limitPrompt = void 0),
         this.apply([{ op: "meta", patch: { limit: null } }]));
     }
-    setMode(e) {
+    setMode(e, force = false) {
       return this.mutex.run(async () => {
-        if (e === this._model.meta.mode) return;
+        if (!force && e === this._model.meta.mode) return;
+        __hostHooks?.onModeChange?.(e);
         let r;
         try {
           r = await this.openSession();
@@ -9129,6 +9149,13 @@ var hs = class extends Error {},
             { ...Pu(n), folder: r.name, sessionId: o.id },
           ));
         for (let a of s) a.sessionId === o.id && this.applyUpdate(a.update);
+        let targetMode = __hostHooks?.getInitialMode?.() ?? this._model.meta.mode ?? "default";
+        try {
+          await i.setMode(o.id, targetMode);
+          this.apply([{ op: "meta", patch: { mode: targetMode } }]);
+        } catch (err) {
+          console.warn("[Hermes] Failed to sync mode in openSession:", err);
+        }
         return o;
       } catch (n) {
         throw (
@@ -34890,7 +34917,8 @@ function J4(t) {
     s,
     a,
     c,
-    l = new gs({
+    l;
+  __activeController = l = new gs({
       folder: () => {
         let x = K.workspace.workspaceFolders?.[0];
         return x && x.uri.scheme === "file"
@@ -35166,7 +35194,7 @@ function J4(t) {
           l.setModel(x.modelId);
           break;
         case "setMode":
-          l.setMode(x.modeId);
+          l.setMode(x.modeId, true);
           break;
         case "continueWith":
           l.continueWith(x.modelId);
@@ -35422,5 +35450,6 @@ async function X4() {
     activate: J4,
     deactivate: X4,
     computeMyersDiff: Qn,
+    setMode: (modeId) => __activeController?.setMode(modeId, true),
   };
 }

@@ -220,4 +220,73 @@ describe("Hermes Core Host <-> Shadow DOM Svelte 5 Webview Integration", () => {
     await core.deactivate();
     fs.rmSync(tmpVault, { recursive: true, force: true });
   });
+
+  it("synchronizes initialMode and dispatches setMode updates with onModeChange notification", async () => {
+    const tmpVault = fs.mkdtempSync(path.join(os.tmpdir(), "hermes-mode-vault-"));
+    const modeChanges: string[] = [];
+
+    const shim = createObsidianVscodeShim({
+      vaultBasePath: tmpVault,
+      vaultName: "ModeVault",
+      getSettings: () => ({
+        path: "/nonexistent/hermes-binary-for-unit-test",
+        environment: {},
+        autoStart: false,
+        notifications: "all",
+      }),
+    });
+
+    const core = activateHermesCore({
+      vscodeShim: shim,
+      extensionPath: tmpVault,
+      initialMode: "accept_edits",
+      onModeChange: (modeId) => {
+        modeChanges.push(modeId);
+      },
+    });
+
+    const provider = shim._internal.getWebviewViewProvider();
+    const hostToWebviewMessages: any[] = [];
+    let webviewReceiveCallback: ((msg: any) => void) | undefined;
+
+    provider.resolveWebviewView({
+      visible: true,
+      badge: undefined,
+      webview: {
+        options: {},
+        html: "",
+        cspSource: "self",
+        asWebviewUri: (u: any) => u,
+        onDidReceiveMessage: (cb: (msg: any) => void) => {
+          webviewReceiveCallback = cb;
+          return { dispose() {} };
+        },
+        postMessage: async (msg: any) => {
+          hostToWebviewMessages.push(msg);
+          return true;
+        },
+      },
+      onDidChangeVisibility: () => ({ dispose() {} }),
+      onDidDispose: () => ({ dispose() {} }),
+    });
+
+    webviewReceiveCallback?.({ type: "ready" });
+    await new Promise((r) => setTimeout(r, 30));
+
+    // Initial init message should contain initialMode
+    const initMsg = hostToWebviewMessages.find((m) => m.type === "init");
+    expect(initMsg?.model?.meta?.mode).toBe("accept_edits");
+
+    // Webview dispatches setMode "default" (Manual)
+    webviewReceiveCallback?.({ type: "setMode", modeId: "default" });
+    await new Promise((r) => setTimeout(r, 30));
+    expect(modeChanges).toContain("default");
+
+    // core.setMode programmatic call
+    await core.setMode("dont_ask");
+    expect(modeChanges).toContain("dont_ask");
+
+    await core.deactivate();
+    fs.rmSync(tmpVault, { recursive: true, force: true });
+  });
 });
