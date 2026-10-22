@@ -35,3 +35,7 @@ _Avoid_: EditorTracker, SessionState
 **SettingsAdapter**:
 The adapter handling retrieval and asynchronous persistence of extension configuration and user settings.
 _Avoid_: ConfigManager, SettingsStore
+
+**Prompt History Buffer**:
+The bounded, persisted queue of sent user chat prompts navigable in the composer input field via `ArrowUp` and `ArrowDown`.
+_Avoid_: CommandHistory, InputStack, ChatRecallQueue

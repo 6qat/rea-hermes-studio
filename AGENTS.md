@@ -11,3 +11,4 @@ Canonical five-role triage labels (`needs-triage`, `needs-info`, `ready-for-agen
 ### Domain docs
 
 Single-context (`GLOSSARY.md` + `docs/adr/` at repo root). See `docs/agents/domain.md`.
+
