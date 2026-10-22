@@ -7148,7 +7148,6 @@ function Vu(e, t) {
     ge = null,
     _e;
   function ve() {
-    __env?.promptHistory?.resetBrowsing();
     let e = H(ce);
     if (!e || e.selectionStart !== e.selectionEnd || $.draft === ge) {
       F(me, null);
@@ -7779,7 +7778,10 @@ function Vu(e, t) {
     }),
     W(`keydown`, M, Te),
     vi(`paste`, M, d),
-    W(`input`, M, ve),
+    W(`input`, M, () => {
+      __env?.promptHistory?.resetBrowsing();
+      ve();
+    }),
     W(`keyup`, M, (e) => {
       (!H(xe) ||
         ![`ArrowUp`, `ArrowDown`, `Enter`, `Tab`, `Escape`].includes(e.key)) &&

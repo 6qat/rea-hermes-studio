@@ -69,6 +69,9 @@ describe("Composer PromptHistoryBuffer integration", () => {
     expect(textarea.value).toBe("second command");
     expect(textarea.selectionStart).toBe("second command".length);
 
+    // User releases the key (keyup event)
+    textarea.dispatchEvent(new KeyboardEvent("keyup", { key: "ArrowUp", bubbles: true }));
+
     // 2. ArrowUp while browsing continues to recall older multiline prompt without getting trapped
     const upEvent2 = new KeyboardEvent("keydown", {
       key: "ArrowUp",
@@ -80,6 +83,7 @@ describe("Composer PromptHistoryBuffer integration", () => {
 
     await new Promise((r) => setTimeout(r, 20));
     expect(textarea.value).toBe("first command\nsecond line of first command");
+    textarea.dispatchEvent(new KeyboardEvent("keyup", { key: "ArrowUp", bubbles: true }));
 
     // 3. ArrowDown advances forward to "second command"
     const downEvent1 = new KeyboardEvent("keydown", {
@@ -92,6 +96,7 @@ describe("Composer PromptHistoryBuffer integration", () => {
 
     await new Promise((r) => setTimeout(r, 20));
     expect(textarea.value).toBe("second command");
+    textarea.dispatchEvent(new KeyboardEvent("keyup", { key: "ArrowDown", bubbles: true }));
 
     // 4. ArrowDown past newest entry restores the uncommitted draft (empty string)
     const downEvent2 = new KeyboardEvent("keydown", {
@@ -104,6 +109,7 @@ describe("Composer PromptHistoryBuffer integration", () => {
 
     await new Promise((r) => setTimeout(r, 20));
     expect(textarea.value).toBe("");
+    textarea.dispatchEvent(new KeyboardEvent("keyup", { key: "ArrowDown", bubbles: true }));
 
     // 5. ArrowDown when not browsing retains native textarea behavior (not defaultPrevented)
     const downEvent3 = new KeyboardEvent("keydown", {
