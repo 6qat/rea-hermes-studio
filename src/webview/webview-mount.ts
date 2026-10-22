@@ -1,3 +1,4 @@
+import { PromptHistoryBuffer } from "./prompt-history-buffer";
 import { HERMES_WEBVIEW_BASE_CSS, THEME_BRIDGE_CSS } from "./theme-bridge";
 import { createHermesWebviewInstance } from "./webview-runtime.cjs";
 
@@ -9,6 +10,7 @@ export interface HermesWebviewMountOptions {
   setState?: (state: any) => void;
   linkifyVaultText?: (markdownText: string) => string;
   isVaultPathKnown?: (path: string) => boolean;
+  promptHistory?: PromptHistoryBuffer;
 }
 
 export interface HermesWebviewMounted {
@@ -89,6 +91,8 @@ export function mountHermesWebview(options: HermesWebviewMountOptions): HermesWe
     },
   };
 
+  const promptHistory = options.promptHistory ?? new PromptHistoryBuffer();
+
   const runtime = createHermesWebviewInstance({
     vscodeApi,
     root: shadowRoot,
@@ -96,6 +100,7 @@ export function mountHermesWebview(options: HermesWebviewMountOptions): HermesWe
     extractDroppedFileUris,
     linkifyVaultText: options.linkifyVaultText,
     isVaultPathKnown: options.isVaultPathKnown,
+    promptHistory,
     onHostMessage(listener: (msg: any) => void) {
       hostMessageListeners.add(listener);
       return () => hostMessageListeners.delete(listener);

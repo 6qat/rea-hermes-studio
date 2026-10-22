@@ -7224,6 +7224,7 @@ function Vu(e, t) {
     if (!e) return;
     let t = ol(e, H(ue), H(de)),
       n = $.skill && !t.includes($.skill) ? [$.skill, ...t] : t;
+    __env?.promptHistory?.push(e);
     (Q({ type: `send`, text: e, ...(n.length ? { skills: n } : {}) }),
       ($.draft = ``),
       ($.skill = null),
@@ -7232,7 +7233,7 @@ function Vu(e, t) {
   function we() {
     Q({ type: `cancel` });
   }
-  function Te(e) {
+  async function Te(e) {
     if (H(xe) && !e.isComposing) {
       if (e.key === `ArrowDown` || e.key === `ArrowUp`) {
         e.preventDefault();
@@ -7247,6 +7248,42 @@ function Vu(e, t) {
       if (e.key === `Escape`) {
         (e.preventDefault(), e.stopPropagation(), (ge = $.draft), F(me, null));
         return;
+      }
+    }
+    let promptHistory = __env?.promptHistory;
+    if (promptHistory && !e.isComposing) {
+      if (e.key === `ArrowUp`) {
+        let textarea = H(ce);
+        let selStart = textarea?.selectionStart ?? 0;
+        let currentText = textarea?.value ?? $.draft ?? "";
+        let textBefore = currentText.slice(0, selStart);
+        if (!textBefore.includes("\n")) {
+          let prev = promptHistory.navigateUp(currentText);
+          if (prev !== undefined) {
+            e.preventDefault();
+            $.draft = prev;
+            await Gr();
+            let ta = H(ce);
+            if (ta) {
+              ta.focus();
+              ta.setSelectionRange(prev.length, prev.length);
+            }
+            return;
+          }
+        }
+      } else if (e.key === `ArrowDown` && promptHistory.isBrowsing()) {
+        let next = promptHistory.navigateDown();
+        if (next !== undefined) {
+          e.preventDefault();
+          $.draft = next;
+          await Gr();
+          let ta = H(ce);
+          if (ta) {
+            ta.focus();
+            ta.setSelectionRange(next.length, next.length);
+          }
+          return;
+        }
       }
     }
     if (
