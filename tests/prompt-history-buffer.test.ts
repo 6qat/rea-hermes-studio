@@ -1,21 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { PromptHistoryBuffer } from "../src/webview/prompt-history-buffer";
-
-class MemoryStorage {
-  private store = new Map<string, string>();
-
-  getItem(key: string): string | null {
-    return this.store.get(key) ?? null;
-  }
-
-  setItem(key: string, value: string): void {
-    this.store.set(key, value);
-  }
-
-  clear(): void {
-    this.store.clear();
-  }
-}
+import { MemoryStorage } from "./mocks/memory-storage";
 
 describe("PromptHistoryBuffer", () => {
   let storage: MemoryStorage;

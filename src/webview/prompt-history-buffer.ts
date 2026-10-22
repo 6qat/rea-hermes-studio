@@ -88,16 +88,6 @@ export class PromptHistoryBuffer {
     return [...this.entries];
   }
 
-  getCurrentIndex(): number {
-    return this.currentIndex;
-  }
-
-  clear(): void {
-    this.entries = [];
-    this.resetBrowsing();
-    this.saveToStorage();
-  }
-
   private loadFromStorage(): void {
     if (!this.storage) return;
 
