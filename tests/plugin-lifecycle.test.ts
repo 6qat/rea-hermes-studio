@@ -203,15 +203,16 @@ describe("HermesStudioPlugin lifecycle & views", () => {
     const openedAgain = await plugin.openVaultFile("Meus Documentos.md");
     expect(openedAgain).toBe(true);
     expect(openLeaves.length).toBe(1);
-    expect(setActiveLeafCalls.length).toBe(1);
-    expect(setActiveLeafCalls[0]).toBe(openLeaves[0]);
+    expect(setActiveLeafCalls.length).toBe(2);
+    expect(setActiveLeafCalls[1]).toBe(openLeaves[0]);
     expect(openLeaves[0].currentMode).toBe("preview");
 
-    // Opening another document opens in a separate leaf
+    // Opening another document replaces the note in the active leaf (no new tab)
     const opened2 = await plugin.openVaultFile("identidade-1.jpg");
     expect(opened2).toBe(true);
     expect(openedFiles.some((f) => f.name === "identidade-1.jpg")).toBe(true);
-    expect(openLeaves.length).toBe(2);
+    expect(openLeaves.length).toBe(1);
+    expect(openLeaves[0].view.file.name).toBe("identidade-1.jpg");
 
     // 4. Verify opening external documents (e.g. skills in ~/.hermes/skills/.../SKILL.md)
     expect((plugin as any).views.has(HERMES_DOC_VIEW_TYPE)).toBe(true);

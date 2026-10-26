@@ -78,6 +78,8 @@ describe("VaultDocumentRouter", () => {
         for (const l of openLeaves) cb(l);
       },
       getLeavesOfType: (t: string) => openLeaves.filter((l: any) => l.view?.getViewType?.() === t),
+      getActiveLeaf: () => activeLeaves[activeLeaves.length - 1] ?? openLeaves[0] ?? null,
+      getMostRecentLeaf: () => activeLeaves[activeLeaves.length - 1] ?? openLeaves[0] ?? null,
       getLeaf: () => {
         let cursorSet: any = null;
         let scrolledTo: any = null;
@@ -227,6 +229,20 @@ And an explicit link [[AI/AI|Artificial Intelligence]] and fenced code:
       const res2 = await router.routeUri("obsidian://open?file=Meus%20Documentos.md");
       expect(res2).toBe(true);
       expect(activeLeaves.length).toBeGreaterThan(0);
+    });
+
+    it("replaces active note in current leaf without opening a new tab", async () => {
+      const { router, openLeaves } = createTestHarness();
+
+      // First open: opens Meus Documentos.md in the active leaf
+      await router.routeUri("wikilink://Meus%20Documentos");
+      expect(openLeaves.length).toBe(1);
+      expect(openLeaves[0].view.file?.path).toBe("Meus Documentos.md");
+
+      // Second open: opens To Study.md, replacing the note in the existing leaf
+      await router.routeUri("obsidian://open?file=To%20Study.md");
+      expect(openLeaves.length).toBe(1);
+      expect(openLeaves[0].view.file?.path).toBe("To Study.md");
     });
 
     it("handles line numbers, switches to source mode, and positions cursor", async () => {

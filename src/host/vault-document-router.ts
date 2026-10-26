@@ -32,6 +32,8 @@ export interface VaultRouterHostAdapter {
   iterateAllLeaves?: (cb: (leaf: any) => void) => void;
   getLeavesOfType?: (type: string) => any[];
   getLeaf?: (type?: any) => any;
+  getActiveLeaf?: () => any;
+  getMostRecentLeaf?: () => any;
   revealLeaf?: (leaf: any) => Promise<void> | void;
   setActiveLeaf?: (leaf: any, params?: any) => void;
   openLinkText?: (
@@ -539,36 +541,20 @@ export class VaultDocumentRouter {
       // otherwise use Reading View mode ("preview") for clean rendered markdown.
       const targetMode = selection ? "source" : "preview";
 
-      // Check if tab is already open
-      let existingLeaf: any;
-      if (typeof this.host.iterateAllLeaves === "function") {
-        this.host.iterateAllLeaves((l: any) => {
-          if (!existingLeaf && l.view?.file?.path === abstractFile.path) {
-            existingLeaf = l;
-          }
-        });
-      } else if (typeof this.host.getLeavesOfType === "function") {
-        const mdLeaves = this.host.getLeavesOfType("markdown") ?? [];
-        for (const l of mdLeaves) {
-          if (l.view?.file?.path === abstractFile.path) {
-            existingLeaf = l;
-            break;
-          }
-        }
-      }
+      // Target the active leaf in the main editing area so the clicked file replaces
+      // the currently active note instead of opening a new tab.
+      const leaf: any =
+        this.host.getActiveLeaf?.() ??
+        this.host.getMostRecentLeaf?.() ??
+        this.host.getLeaf?.(false);
 
-      let leaf: any = existingLeaf;
-      if (leaf) {
+      if (leaf && typeof leaf.openFile === "function") {
+        await leaf.openFile(abstractFile, {
+          active: true,
+          state: { mode: targetMode },
+        });
         this.host.revealLeaf?.(leaf);
         this.host.setActiveLeaf?.(leaf, { focus: true });
-      } else {
-        leaf = this.host.getLeaf?.("tab") ?? this.host.getLeaf?.(false);
-        if (leaf && typeof leaf.openFile === "function") {
-          await leaf.openFile(abstractFile, {
-            active: true,
-            state: { mode: targetMode },
-          });
-        }
       }
 
       // Ensure appropriate mode

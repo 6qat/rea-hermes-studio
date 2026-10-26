@@ -90,6 +90,66 @@ export default class HermesStudioPlugin extends Plugin {
       iterateAllLeaves: (cb) => this.app?.workspace?.iterateAllLeaves?.(cb),
       getLeavesOfType: (t) => this.app?.workspace?.getLeavesOfType?.(t) ?? [],
       getLeaf: (type) => this.app?.workspace?.getLeaf?.(type),
+      getActiveLeaf: () => {
+        // 1. If an unpinned MarkdownView is currently active in the main workspace, reuse its leaf
+        const activeMd = this.app?.workspace?.getActiveViewOfType?.(MarkdownView) as any;
+        if (activeMd?.leaf && !activeMd.leaf.pinned) {
+          const root = (activeMd.leaf as any).getRoot?.();
+          if (!root || root === this.app?.workspace?.rootSplit) {
+            return activeMd.leaf;
+          }
+        }
+        // 2. Otherwise get the most recently active leaf in the root split (main editor area)
+        const mostRecent = this.app?.workspace?.getMostRecentLeaf?.();
+        if (mostRecent && !mostRecent.pinned) {
+          const viewType = mostRecent.view?.getViewType?.() ?? mostRecent.getViewState?.()?.type;
+          if (!viewType?.startsWith("hermes-")) {
+            const root = (mostRecent as any).getRoot?.();
+            if (!root || root === this.app?.workspace?.rootSplit) {
+              return mostRecent;
+            }
+          }
+        }
+        // 3. Check workspace.activeLeaf directly
+        const activeLeaf = (this.app?.workspace as any)?.activeLeaf;
+        if (activeLeaf && !activeLeaf.pinned) {
+          const viewType = activeLeaf.view?.getViewType?.() ?? activeLeaf.getViewState?.()?.type;
+          if (!viewType?.startsWith("hermes-")) {
+            const root = (activeLeaf as any).getRoot?.();
+            if (!root || root === this.app?.workspace?.rootSplit) {
+              return activeLeaf;
+            }
+          }
+        }
+        // 4. Fallback: find any unpinned markdown leaf in rootSplit
+        const mdLeaves = this.app?.workspace?.getLeavesOfType?.("markdown") ?? [];
+        for (const l of mdLeaves) {
+          if (!l.pinned) {
+            const root = (l as any).getRoot?.();
+            if (!root || root === this.app?.workspace?.rootSplit) {
+              return l;
+            }
+          }
+        }
+        // Also check iterateAllLeaves for an existing markdown leaf if getLeavesOfType returned none
+        let fallbackLeaf: any = null;
+        if (typeof this.app?.workspace?.iterateAllLeaves === "function") {
+          this.app.workspace.iterateAllLeaves((l: any) => {
+            if (fallbackLeaf || l.pinned) return;
+            const vt = l.view?.getViewType?.() ?? l.getViewState?.()?.type;
+            if (vt === "markdown" || (!vt && l.view?.file)) {
+              const root = (l as any).getRoot?.();
+              if (!root || root === this.app?.workspace?.rootSplit) {
+                fallbackLeaf = l;
+              }
+            }
+          });
+        }
+        if (fallbackLeaf) return fallbackLeaf;
+        // 5. Default leaf (false = reuse or create main leaf, NEVER 'tab')
+        return this.app?.workspace?.getLeaf?.(false);
+      },
+      getMostRecentLeaf: () => this.app?.workspace?.getMostRecentLeaf?.(),
       revealLeaf: (leaf) => this.app?.workspace?.revealLeaf?.(leaf),
       setActiveLeaf: (leaf, params) => this.app?.workspace?.setActiveLeaf?.(leaf, params),
       openLinkText: (linktext, sourcePath, action, openViewState) =>
