@@ -15959,7 +15959,7 @@ function Tg(e) {
     /^[a-z][a-z0-9+.-]*:\/\//i.test(t)
   )
     return;
-  if (/[,"*?<>|]/.test(t)) return;
+  if (/[*?<>|]/.test(t)) return;
   let n = /^(.*?)(?::(\d{1,7})(?::\d{1,5})?)?$/.exec(t),
     r = (n?.[1] ?? t).trim(),
     i = n?.[2] ? Number(n[2]) : void 0;
@@ -15972,8 +15972,9 @@ function Tg(e) {
   let a = r.replace(/[\\/]+$/, "").split(/[\\/]/).pop() ?? ``,
     o = /[\\/]/.test(r) && r.length > 0,
     s = /^[^.].*\.[A-Za-z0-9]{1,10}$/.test(a),
-    hasSpace = r.includes(" ") && !/[;{}[\]\\~`!@#$%^=]/.test(r);
-  if (o || s || hasSpace) return i && i > 0 ? { path: r, line: i } : { path: r };
+    isTruncated = /(?:…|\.{2,3})$/.test(r),
+    hasSpace = r.includes(" ") && !/[;{}[\]\\~`!#$%^=]/.test(r);
+  if (o || s || isTruncated || hasSpace) return i && i > 0 ? { path: r, line: i } : { path: r };
 }
 function Eg(e) {
   let t = new Map();

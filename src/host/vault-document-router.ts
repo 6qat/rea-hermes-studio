@@ -68,7 +68,7 @@ export class VaultDocumentRouter {
     const lowerNoSlash = withoutSlash.toLowerCase();
     const allFiles: VaultFileItem[] = this.host.getFiles() ?? [];
 
-    return allFiles.find((file) => {
+    const exact = allFiles.find((file) => {
       const fileName = file.name?.toLowerCase?.() ?? "";
       const baseName = file.basename?.toLowerCase?.() ?? "";
       const filePath = file.path?.toLowerCase?.() ?? "";
@@ -87,6 +87,30 @@ export class VaultDocumentRouter {
           (filePath.endsWith(`/${lowerNoSlash}`) || filePath.endsWith(`/${lowerNoSlash}.md`)))
       );
     });
+    if (exact) return exact;
+
+    // Truncated note name matching (ending with … or .. or ...)
+    const stripped = cleanTarget.replace(/(?:…|\.{2,3})$/, "").trim();
+    if (stripped.length >= 3 && stripped !== cleanTarget) {
+      const lastSlash = stripped.lastIndexOf("/");
+      const folder = lastSlash >= 0 ? stripped.slice(0, lastSlash).toLowerCase() : "";
+      const prefix = (lastSlash >= 0 ? stripped.slice(lastSlash + 1) : stripped).toLowerCase();
+
+      return allFiles.find((file) => {
+        const filePath = (file.path ?? "").toLowerCase();
+        const fileName = (file.name ?? "").toLowerCase();
+        const baseName = (file.basename ?? "").toLowerCase();
+        if (folder) {
+          if (!filePath.startsWith(`${folder}/`)) return false;
+          return fileName.startsWith(prefix) || baseName.startsWith(prefix);
+        }
+        return (
+          fileName.startsWith(prefix) || baseName.startsWith(prefix) || filePath.startsWith(prefix)
+        );
+      });
+    }
+
+    return undefined;
   }
 
   public isPathKnown(targetPath: string): boolean {
@@ -507,9 +531,12 @@ export class VaultDocumentRouter {
       abstractFile = this.host.getFirstLinkpathDest?.(cleanTarget || target, "") ?? null;
     }
 
-    // 6. Match against vault files by name, basename, path, or trailing subpath
+    // 6. Match against vault files by name, basename, path, trailing subpath, or truncated prefix
     if (!abstractFile) {
-      abstractFile = this.findMatchingVaultFile(cleanTarget || target);
+      const matched = this.findMatchingVaultFile(cleanTarget || target);
+      if (matched) {
+        abstractFile = this.host.getAbstractFileByPath?.(matched.path) ?? matched;
+      }
     }
 
     // 7. Match against vault folders

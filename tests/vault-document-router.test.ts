@@ -45,6 +45,11 @@ describe("VaultDocumentRouter", () => {
         path: "CONTENT_CREATION/Guiga/Guiga.md",
       },
       {
+        name: "A raiz econômica do Bitcoin — Menger, Mises e Hayek (vídeo @CorySwan).md",
+        basename: "A raiz econômica do Bitcoin — Menger, Mises e Hayek (vídeo @CorySwan)",
+        path: "_CRYPTO_/A raiz econômica do Bitcoin — Menger, Mises e Hayek (vídeo @CorySwan).md",
+      },
+      {
         name: "identidade-1.jpg",
         basename: "identidade-1",
         path: "attachments/identidade-1.jpg",
@@ -162,6 +167,18 @@ describe("VaultDocumentRouter", () => {
       expect(router.isPathKnown("Guiga/Guiga")).toBe(true);
       expect(router.isPathKnown("attachments")).toBe(true);
       expect(router.isPathKnown("NonExistentNote.md")).toBe(false);
+
+      // Notes with commas and special characters
+      expect(
+        router.isPathKnown(
+          "_CRYPTO_/A raiz econômica do Bitcoin — Menger, Mises e Hayek (vídeo @CorySwan).md",
+        ),
+      ).toBe(true);
+
+      // Truncated note titles (ending with ellipsis or double dot)
+      expect(router.isPathKnown("_CRYPTO_/A raiz econômica do Bitcoin…")).toBe(true);
+      expect(router.isPathKnown("AI/Hermes to Headless Antigravity…")).toBe(true);
+      expect(router.isPathKnown("AI/Hermes to Headless..")).toBe(true);
     });
 
     it("recognizes absolute paths within and outside vault", () => {
@@ -243,6 +260,13 @@ And an explicit link [[AI/AI|Artificial Intelligence]] and fenced code:
       await router.routeUri("obsidian://open?file=To%20Study.md");
       expect(openLeaves.length).toBe(1);
       expect(openLeaves[0].view.file?.path).toBe("To Study.md");
+
+      // Third open: opens truncated note title, matching the full path
+      await router.routeUri("_CRYPTO_/A raiz econômica do Bitcoin…");
+      expect(openLeaves.length).toBe(1);
+      expect(openLeaves[0].view.file?.path).toBe(
+        "_CRYPTO_/A raiz econômica do Bitcoin — Menger, Mises e Hayek (vídeo @CorySwan).md",
+      );
     });
 
     it("handles line numbers, switches to source mode, and positions cursor", async () => {
