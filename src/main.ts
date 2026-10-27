@@ -151,9 +151,20 @@ export default class HermesStudioPlugin extends Plugin {
       },
       getMostRecentLeaf: () => this.app?.workspace?.getMostRecentLeaf?.(),
       revealLeaf: (leaf) => this.app?.workspace?.revealLeaf?.(leaf),
-      setActiveLeaf: (leaf, params) => this.app?.workspace?.setActiveLeaf?.(leaf, params),
-      openLinkText: (linktext, sourcePath, action, openViewState) =>
-        this.app?.workspace?.openLinkText?.(linktext, sourcePath, action, openViewState),
+      setActiveLeaf: (leaf, params) => {
+        this.app?.workspace?.setActiveLeaf?.(leaf, params);
+        this.refreshTrackerFromWorkspace({ file: (leaf?.view as any)?.file });
+      },
+      openLinkText: async (linktext, sourcePath, action, openViewState) => {
+        const res = await this.app?.workspace?.openLinkText?.(
+          linktext,
+          sourcePath,
+          action,
+          openViewState,
+        );
+        this.refreshTrackerFromWorkspace();
+        return res;
+      },
       leafHost: this.leaves,
       externalDocumentViewType: HERMES_DOC_VIEW_TYPE,
       showInFolder: (absPath) => (this.app as any)?.showInFolder?.(absPath),
@@ -257,7 +268,7 @@ export default class HermesStudioPlugin extends Plugin {
         resolveWikiLink: (linkpath) => this.resolveVaultWikiLink(linkpath),
         getVaultDiagnostics: () => this.collectVaultDiagnostics(),
         getActiveEditorState: () => {
-          this.refreshTrackerFromWorkspace();
+          this.refreshTrackerFromWorkspace({ silent: true });
           const cur = this.noteTracker.current;
           if (!cur) return undefined;
           return {
@@ -417,18 +428,83 @@ export default class HermesStudioPlugin extends Plugin {
     filePathOrLink: string,
     selection?: { startLine: number; endLine: number },
   ): Promise<boolean> {
-    return this.router.routeUri(filePathOrLink, selection ? { selection } : undefined);
+    const opened = await this.router.routeUri(
+      filePathOrLink,
+      selection ? { selection } : undefined,
+    );
+    if (opened) {
+      this.refreshTrackerFromWorkspace();
+    }
+    return opened;
   }
 
-  private refreshTrackerFromWorkspace(): void {
-    const mdView = this.app?.workspace?.getActiveViewOfType?.(MarkdownView) as any;
-    if (!mdView?.file?.path) return;
-    const editor = mdView.editor;
-    if (!editor) {
-      this.noteTracker.updateFromEditor({
-        relPath: mdView.file.path,
-        cursorLine: 1,
+  private findViewForFilePath(targetPath: string): any {
+    const activeMd = this.app?.workspace?.getActiveViewOfType?.(MarkdownView) as any;
+    if (activeMd?.file?.path === targetPath) return activeMd;
+
+    const mostRecent = this.app?.workspace?.getMostRecentLeaf?.() as any;
+    if (mostRecent?.view?.file?.path === targetPath) return mostRecent.view;
+
+    const mdLeaves = this.app?.workspace?.getLeavesOfType?.("markdown") ?? [];
+    for (const l of mdLeaves) {
+      if ((l as any)?.view?.file?.path === targetPath) {
+        return (l as any).view;
+      }
+    }
+
+    let matchedView: any = null;
+    if (typeof this.app?.workspace?.iterateAllLeaves === "function") {
+      this.app.workspace.iterateAllLeaves((l: any) => {
+        if (!matchedView && l?.view?.file?.path === targetPath) {
+          matchedView = l.view;
+        }
       });
+    }
+    return matchedView;
+  }
+
+  private refreshTrackerFromWorkspace(options?: {
+    silent?: boolean;
+    file?: { path?: string } | null;
+  }): void {
+    let mdView: any = null;
+    let relPath: string | undefined;
+
+    if (options?.file?.path) {
+      relPath = options.file.path;
+      mdView = this.findViewForFilePath(relPath);
+    } else {
+      const activeMd = this.app?.workspace?.getActiveViewOfType?.(MarkdownView) as any;
+      if (activeMd?.file?.path) {
+        mdView = activeMd;
+        relPath = activeMd.file.path;
+      } else {
+        const activeFile = (this.app?.workspace as any)?.getActiveFile?.();
+        if (activeFile?.path) {
+          relPath = activeFile.path;
+          mdView = this.findViewForFilePath(activeFile.path);
+        } else {
+          const mostRecent = this.app?.workspace?.getMostRecentLeaf?.() as any;
+          const vt = mostRecent?.view?.getViewType?.() ?? mostRecent?.getViewState?.()?.type;
+          if (mostRecent?.view?.file?.path && !vt?.startsWith("hermes-")) {
+            mdView = mostRecent.view;
+            relPath = mostRecent.view.file.path;
+          }
+        }
+      }
+    }
+
+    if (!relPath) return;
+
+    const editor = mdView?.editor;
+    if (!editor) {
+      this.noteTracker.updateFromEditor(
+        {
+          relPath,
+          cursorLine: 1,
+        },
+        { silent: options?.silent },
+      );
       return;
     }
 
@@ -437,20 +513,26 @@ export default class HermesStudioPlugin extends Plugin {
     if (selectedText && selectedText.trim().length > 0) {
       const from = editor.getCursor?.("from") ?? cursor;
       const to = editor.getCursor?.("to") ?? cursor;
-      this.noteTracker.updateFromEditor({
-        relPath: mdView.file.path,
-        cursorLine: (cursor.line ?? 0) + 1,
-        selection: {
-          startLine: (from.line ?? 0) + 1,
-          endLine: (to.line ?? 0) + 1,
-          text: selectedText,
+      this.noteTracker.updateFromEditor(
+        {
+          relPath,
+          cursorLine: (cursor.line ?? 0) + 1,
+          selection: {
+            startLine: (from.line ?? 0) + 1,
+            endLine: (to.line ?? 0) + 1,
+            text: selectedText,
+          },
         },
-      });
+        { silent: options?.silent },
+      );
     } else {
-      this.noteTracker.updateFromEditor({
-        relPath: mdView.file.path,
-        cursorLine: (cursor.line ?? 0) + 1,
-      });
+      this.noteTracker.updateFromEditor(
+        {
+          relPath,
+          cursorLine: (cursor.line ?? 0) + 1,
+        },
+        { silent: options?.silent },
+      );
     }
   }
 
@@ -461,7 +543,20 @@ export default class HermesStudioPlugin extends Plugin {
       this.app.workspace.on("active-leaf-change", (leaf: WorkspaceLeaf | null) => {
         const viewType = (leaf?.view as any)?.getViewType?.();
         this.noteTracker.onActiveLeafChanged(viewType);
-        if (viewType === "markdown") {
+        const leafFile = (leaf?.view as any)?.file;
+        if (viewType === "markdown" || leafFile?.path) {
+          this.refreshTrackerFromWorkspace({ file: leafFile });
+        } else {
+          this.refreshTrackerFromWorkspace();
+        }
+      }),
+    );
+
+    this.registerEvent(
+      (this.app.workspace as any).on("file-open", (file: TFile | null) => {
+        if (file?.path) {
+          this.refreshTrackerFromWorkspace({ file });
+        } else {
           this.refreshTrackerFromWorkspace();
         }
       }),

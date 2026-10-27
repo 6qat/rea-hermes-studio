@@ -372,4 +372,122 @@ describe("Hermes Core Host <-> Shadow DOM Svelte 5 Webview Integration", () => {
     await core.deactivate();
     fs.rmSync(tmpVault, { recursive: true, force: true });
   });
+
+  it("retains previous chats in the session list when creating a new chat even if ACP session/list omits local gateway sessions", async () => {
+    const tmpVault = fs.mkdtempSync(path.join(os.tmpdir(), "hermes-sessions-vault-"));
+    const fakeHermes = path.join(tmpVault, "fake-hermes.js");
+    fs.writeFileSync(
+      fakeHermes,
+      `#!/usr/bin/env node
+const readline = require("node:readline");
+if (process.argv.includes("--print-runtime-command")) {
+  console.log(JSON.stringify([process.execPath, "-e", "// hermes_bootstrap; runpy.run_module('hermes')"]));
+  process.exit(0);
+}
+let sessionSeq = 0;
+const rl = readline.createInterface({ input: process.stdin, crlfDelay: Infinity });
+rl.on("line", (line) => {
+  if (!line.trim()) return;
+  let msg;
+  try { msg = JSON.parse(line); } catch { return; }
+  const reply = (result) => process.stdout.write(JSON.stringify({ jsonrpc: "2.0", id: msg.id, result }) + "\\n");
+  if (msg.method === "initialize") {
+    reply({ protocolVersion: 1, agentInfo: { name: "hermes", version: "1.0.0" }, agentCapabilities: {} });
+  } else if (msg.method === "session/new") {
+    const sid = "sess-" + (++sessionSeq);
+    reply({ sessionId: sid, models: { currentModelId: "openai/gpt-5.4", availableModels: [{ modelId: "openai/gpt-5.4", name: "GPT-5.4" }] }, modes: { currentModeId: "default", availableModes: [{ id: "default", name: "Manual" }] } });
+  } else if (msg.method === "session/set_mode") {
+    reply({});
+  } else if (msg.method === "session/prompt") {
+    const sid = msg.params?.sessionId || "sess-1";
+    process.stdout.write(JSON.stringify({
+      jsonrpc: "2.0",
+      method: "session/update",
+      params: {
+        sessionId: sid,
+        update: { sessionUpdate: "agent_message_chunk", messageId: "m1", content: { type: "text", text: "Hello from " + sid } }
+      }
+    }) + "\\n");
+    reply({ stopReason: "end_turn" });
+  } else if (msg.method === "session/list") {
+    // Simulate gateway catalog bug where active/completed local-routed ACP sessions are omitted
+    reply({ sessions: [] });
+  } else if (msg.id !== undefined) {
+    reply({});
+  }
+});
+`,
+      { mode: 0o755 },
+    );
+
+    const shim = createObsidianVscodeShim({
+      vaultBasePath: tmpVault,
+      vaultName: "SessionsVault",
+      getSettings: () => ({
+        path: fakeHermes,
+        environment: {},
+        autoStart: true,
+        notifications: "all",
+      }),
+    });
+
+    const core = activateHermesCore({
+      vscodeShim: shim,
+      extensionPath: tmpVault,
+    });
+
+    const provider = shim._internal.getWebviewViewProvider();
+    const hostToWebviewMessages: any[] = [];
+    let webviewReceiveCallback: ((msg: any) => void) | undefined;
+
+    provider.resolveWebviewView({
+      visible: true,
+      badge: undefined,
+      webview: {
+        options: {},
+        html: "",
+        cspSource: "self",
+        asWebviewUri: (u: any) => u,
+        onDidReceiveMessage: (cb: (msg: any) => void) => {
+          webviewReceiveCallback = cb;
+          return { dispose() {} };
+        },
+        postMessage: async (msg: any) => {
+          hostToWebviewMessages.push(msg);
+          return true;
+        },
+      },
+      onDidChangeVisibility: () => ({ dispose() {} }),
+      onDidDispose: () => ({ dispose() {} }),
+    });
+
+    webviewReceiveCallback?.({ type: "ready" });
+    await new Promise((r) => setTimeout(r, 80));
+
+    // Send a prompt in the first chat (sess-1)
+    webviewReceiveCallback?.({ type: "send", text: "List all available book lists" });
+    await new Promise((r) => setTimeout(r, 150));
+
+    // Create a new chat (sess-2)
+    webviewReceiveCallback?.({ type: "newChat" });
+    await new Promise((r) => setTimeout(r, 150));
+
+    // Open sessions combobox -> listSessions
+    webviewReceiveCallback?.({ type: "listSessions" });
+    await new Promise((r) => setTimeout(r, 100));
+
+    const sessionListMsgs = hostToWebviewMessages.filter(
+      (m) => m.type === "sessions" && m.list?.loading === false,
+    );
+    const lastList = sessionListMsgs.at(-1)?.list;
+    expect(lastList).toBeDefined();
+    expect(
+      lastList.items.some(
+        (item: any) => item.id === "sess-1" && item.title === "List all available book lists",
+      ),
+    ).toBe(true);
+
+    await core.deactivate();
+    fs.rmSync(tmpVault, { recursive: true, force: true });
+  });
 });

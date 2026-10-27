@@ -20,6 +20,8 @@ describe("HermesStudioPlugin lifecycle & views", () => {
     const openedFiles: any[] = [];
     const openLeaves: any[] = [];
     const setActiveLeafCalls: any[] = [];
+    const workspaceListeners = new Map<string, Array<(...args: any[]) => void>>();
+    let currentActiveMdView: any = null;
     const mockApp: any = {
       vault: {
         adapter,
@@ -87,7 +89,12 @@ describe("HermesStudioPlugin lifecycle & views", () => {
         unresolvedLinks: {},
       },
       workspace: {
-        on: () => ({}),
+        on: (event: string, cb: (...args: any[]) => void) => {
+          const list = workspaceListeners.get(event) ?? [];
+          list.push(cb);
+          workspaceListeners.set(event, list);
+          return {};
+        },
         getLeavesOfType: (t: string) =>
           openLeaves.filter((l: any) => l.view?.getViewType?.() === t),
         iterateAllLeaves: (cb: (l: any) => void) => {
@@ -133,7 +140,7 @@ describe("HermesStudioPlugin lifecycle & views", () => {
           }
           return true;
         },
-        getActiveViewOfType: () => null,
+        getActiveViewOfType: () => currentActiveMdView,
       },
       setting: {
         open: () => {},
@@ -313,20 +320,47 @@ describe("HermesStudioPlugin lifecycle & views", () => {
     expect(guigaLink).toBeDefined();
 
     (receitaLink as HTMLElement).click();
-    await new Promise((r) => setTimeout(r, 20));
+    await new Promise((r) => setTimeout(r, 25));
     const receitaLeaf = openLeaves.find(
       (l: any) => l.view?.file?.path === "SAÚDE/Receita Cardiológica - SOS Cardio (junho 2026).md",
     );
     expect(receitaLeaf).toBeDefined();
     expect(receitaLeaf.currentMode).toBe("preview");
+    expect(shadowRoot.querySelector(".ctx-chip")?.textContent).toContain("Receita Cardiológica");
 
     (guigaLink as HTMLElement).click();
-    await new Promise((r) => setTimeout(r, 20));
+    await new Promise((r) => setTimeout(r, 25));
     const guigaLeaf = openLeaves.find(
       (l: any) => l.view?.file?.path === "CONTENT_CREATION/Guiga/Guiga.md",
     );
     expect(guigaLeaf).toBeDefined();
     expect(guigaLeaf.currentMode).toBe("preview");
+    expect(shadowRoot.querySelector(".ctx-chip")?.textContent).toContain("Guiga.md");
+
+    // 6. Verify active note chip updates when user selects another note via active-leaf-change (with live MarkdownView)
+    currentActiveMdView = {
+      file: { path: "To Study.md", name: "To Study.md" },
+      editor: {
+        getCursor: () => ({ line: 4, ch: 0 }),
+        getSelection: () => "",
+      },
+      getViewType: () => "markdown",
+    };
+    for (const cb of workspaceListeners.get("active-leaf-change") ?? []) {
+      cb({ view: currentActiveMdView });
+    }
+    await new Promise((r) => setTimeout(r, 25));
+    expect(plugin.noteTracker.current?.relPath).toBe("To Study.md");
+    expect(shadowRoot.querySelector(".ctx-chip")?.textContent).toContain("To Study.md");
+
+    // 7. Verify active note chip updates when user selects another note in File Explorer (file-open event while focus is in sidebar)
+    currentActiveMdView = null;
+    for (const cb of workspaceListeners.get("file-open") ?? []) {
+      cb({ path: "AI/AI.md", name: "AI.md" });
+    }
+    await new Promise((r) => setTimeout(r, 25));
+    expect(plugin.noteTracker.current?.relPath).toBe("AI/AI.md");
+    expect(shadowRoot.querySelector(".ctx-chip")?.textContent).toContain("AI.md");
 
     await sideView.onClose();
     sideView.containerEl.remove();

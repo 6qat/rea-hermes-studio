@@ -8474,6 +8474,7 @@ var hs = class extends Error {},
     loading;
     knownTitles = new Map();
     listedIds = new Set();
+    recentSessions = new Map();
     replayUserRaw = new Map();
     deleted;
     turn;
@@ -8566,6 +8567,7 @@ var hs = class extends Error {},
         if (((y = this.client), !y || v.clientId !== y.id))
           throw new Error("Hermes restarted");
         ((b.state = "active"), (b.sessionId = v.id), (a = !0));
+        this.rememberCurrentSession(!0);
         let I = i.length ? vu(i, n) : n,
           T = await y.prompt(v.id, Ab(I, r, this._model.meta.mode ?? "default")),
           $ = this.currentTurn(l);
@@ -8738,10 +8740,12 @@ var hs = class extends Error {},
     }
     newChat() {
       return (
+        this.rememberCurrentSession(),
         this.withdrawPendingTurn(),
         this.handBackQueue(),
         this.mutex.run(async () => {
-          (await this.leaveCurrentTurn(),
+          (this.rememberCurrentSession(),
+            await this.leaveCurrentTurn(),
             (this.session = void 0),
             (this.limitPrompt = void 0),
             this.apply([
@@ -8819,23 +8823,65 @@ var hs = class extends Error {},
         (this.deleted = { clientId: r, ids: new Set() }),
         this.deleted.ids.add(e),
         this.knownTitles.delete(e),
+        this.recentSessions.delete(e),
         this.listedIds.delete(e));
     }
     sessionRenamed(e, r) {
-      (this.knownTitles.set(e, r),
+      this.knownTitles.set(e, r);
+      let i = this.recentSessions.get(e);
+      (i && this.recentSessions.set(e, { ...i, title: r }),
         this._model.meta.sessionId === e &&
           this.apply([{ op: "meta", patch: { title: r } }]));
+    }
+    rememberCurrentSession(e = !1) {
+      let r = this.session?.id ?? this._model.meta.sessionId;
+      if (!r || this.deleted?.ids?.has(r)) return;
+      if (!this._model.items.some((s) => s.kind === "user")) return;
+      let i = this.deps.folder()?.path,
+        n = this.titleOf(r, this._model);
+      n && n !== "New chat" && this.knownTitles.set(r, n);
+      let o = this.recentSessions.get(r);
+      this.recentSessions.set(r, {
+        sessionId: r,
+        cwd: i ?? o?.cwd ?? "",
+        ...(n && n !== "New chat"
+          ? { title: n }
+          : o?.title
+            ? { title: o.title }
+            : {}),
+        updatedAt:
+          e || !o?.updatedAt
+            ? new Date(this.deps.now()).toISOString()
+            : o.updatedAt,
+      });
     }
     async listSessions(e) {
       let r = this.deps.folder();
       if (!r) throw new Error("Open a folder to see its sessions.");
+      this.rememberCurrentSession();
       let i = await this.ensureSession(),
         n = this.client;
       if (!n?.alive || n.id !== i.clientId) throw new Error("Hermes restarted");
-      let o = await n.listSessions(r.path, e),
+      let [o, extra] = await Promise.all([
+          n.listSessions(r.path, e),
+          e
+            ? Promise.resolve([])
+            : Promise.resolve(this.deps.listLocalSessions?.(r.path)).catch(
+                () => [],
+              ),
+        ]),
         s = this.deleted?.clientId === n.id ? this.deleted.ids : void 0,
-        a = [];
-      for (let l of Array.isArray(o?.sessions) ? o.sessions : []) {
+        raw = [
+          ...(Array.isArray(o?.sessions) ? o.sessions : []),
+          ...(Array.isArray(extra) ? extra : []),
+          ...(e
+            ? []
+            : [...this.recentSessions.values()].filter(
+                (l) => !l.cwd || l.cwd === r.path,
+              )),
+        ],
+        byId = new Map();
+      for (let l of raw) {
         if (
           typeof l?.sessionId != "string" ||
           !l.sessionId ||
@@ -8846,16 +8892,29 @@ var hs = class extends Error {},
         let u =
           typeof l.title == "string" && l.title.trim()
             ? l.title.trim()
-            : void 0;
-        (u && this.knownTitles.set(l.sessionId, u),
-          a.push({
-            id: l.sessionId,
-            ...(u ? { title: u } : {}),
-            ...(typeof l.updatedAt == "string"
-              ? { updatedAt: l.updatedAt }
-              : {}),
-          }));
+            : this.knownTitles.get(l.sessionId);
+        u && this.knownTitles.set(l.sessionId, u);
+        let prev = byId.get(l.sessionId),
+          updatedAt =
+            typeof l.updatedAt == "string" && l.updatedAt
+              ? l.updatedAt
+              : prev?.updatedAt;
+        byId.set(l.sessionId, {
+          id: l.sessionId,
+          ...((u ?? prev?.title) ? { title: u ?? prev?.title } : {}),
+          ...(updatedAt ? { updatedAt } : {}),
+        });
       }
+      let a = [...byId.values()];
+      if (
+        (Array.isArray(extra) && extra.length > 0) ||
+        this.recentSessions.size > 0
+      )
+        a.sort((l, u) => {
+          let lt = l.updatedAt ? Date.parse(l.updatedAt) || 0 : 0,
+            ut = u.updatedAt ? Date.parse(u.updatedAt) || 0 : 0;
+          return ut - lt;
+        });
       let c =
         typeof o?.nextCursor == "string" && o.nextCursor
           ? o.nextCursor
@@ -8864,8 +8923,10 @@ var hs = class extends Error {},
     }
     openSaved(e) {
       return (
+        this.rememberCurrentSession(),
         this.withdrawPendingTurn(),
         this.mutex.run(async () => {
+          this.rememberCurrentSession();
           let r = this.session;
           if (
             r?.id === e &&
@@ -9762,6 +9823,7 @@ var hs = class extends Error {},
       let r = cs(this._model, e);
       if (r !== this._model) {
         this._model = r;
+        this.rememberCurrentSession();
         for (let i of this.listeners)
           try {
             i(e, r);
@@ -33889,6 +33951,38 @@ for i in range(0, len(args) - 1, 2):
         break
 print(json.dumps(out))
 `;
+var S4_SESSIONS = `
+import json, sys
+from hermes_constants import get_hermes_home
+from hermes_state import SessionDB
+from acp_adapter.catalog import read_local_owners
+from acp_adapter.session import _normalize_cwd_for_compare, _parse_model_config, _session_info, _updated_at_sort_key
+
+cwd = sys.argv[1] if len(sys.argv) > 1 and sys.argv[1] else None
+path = get_hermes_home() / "state.db"
+if not path.exists():
+    print("[]")
+    sys.exit(0)
+normalized = _normalize_cwd_for_compare(cwd) if cwd else None
+owners = read_local_owners(path)
+with SessionDB(db_path=path, read_only=True) as db:
+    rows = {str(row["id"]): dict(row) for row in db.list_sessions_rich(sources=["acp", "local"], local_created_sources=["acp"], limit=1000)}
+results = {}
+for sid, row in rows.items():
+    sid = row.get("_lineage_root_id") or sid
+    sid = owners.get(sid, sid)
+    count = int(row.get("message_count") or 0)
+    session_cwd = row.get("cwd") or _parse_model_config(row.get("model_config")).get("cwd", ".")
+    if count <= 0 or (normalized and _normalize_cwd_for_compare(session_cwd) != normalized):
+        continue
+    info = _session_info(sid, session_cwd, row.get("model") or "", count, row.get("title"),
+                         row.get("preview"), row.get("last_active") or row.get("started_at"))
+    held = results.get(sid)
+    if held is None or _updated_at_sort_key(info.get("updated_at")) > _updated_at_sort_key(held.get("updated_at")):
+        results[sid] = info
+out = sorted(results.values(), key=lambda row: _updated_at_sort_key(row.get("updated_at")), reverse=True)
+print(json.dumps([{"sessionId": r["session_id"], "cwd": r["cwd"], "title": r.get("title"), "updatedAt": r.get("updated_at")} for r in out]))
+`;
 function ET(t, e) {
   return {
     command: t.command,
@@ -34004,8 +34098,7 @@ var I4 = 2e4,
       }
     }
     async runtimeFor(e) {
-      if (this.runtime?.launcher === e && this.runtime.rt)
-        return this.runtime.rt;
+      if (this.runtime?.launcher === e) return this.runtime.rt ?? void 0;
       let r = await this.deps.run(e, ["--print-runtime-command"], I4),
         i = r.code === 0 ? (CT(r.stdout) ?? null) : null;
       return (
@@ -34016,6 +34109,30 @@ var I4 = 2e4,
         (this.runtime = { launcher: e, rt: i }),
         i ?? void 0
       );
+    }
+    async listSessions(e) {
+      let r = this.deps.hermes();
+      if (!r) return [];
+      try {
+        let i = await this.runtimeFor(r);
+        if (!i) return [];
+        let n = await this.deps.run(
+          i.command,
+          [
+            ...i.args,
+            "-c",
+            `${i.bootstrap}
+${S4_SESSIONS}`,
+            e ?? "",
+          ],
+          I4,
+        );
+        if (n.code !== 0) return [];
+        let o = JSON.parse(n.stdout.trim().split(/\r?\n/).pop() ?? "[]");
+        return Array.isArray(o) ? o : [];
+      } catch {
+        return [];
+      }
     }
   };
 var P4 = 30;
@@ -35071,7 +35188,8 @@ function J4(t) {
     s,
     a,
     c,
-    l;
+    l,
+    m;
   __activeController = l = new gs({
       folder: () => {
         let x = K.workspace.workspaceFolders?.[0];
@@ -35087,6 +35205,7 @@ function J4(t) {
           : { ok: !1, message: x.message };
       },
       createClient: (x) => new Hc(x),
+      listLocalSessions: (x) => (m ? m.listSessions(x) : Promise.resolve([])),
       trace: () => pu("trace") === !0,
       log: n,
       onStderrLine: (x) => i(`${r()} [hermes] ${x}`),
@@ -35138,7 +35257,8 @@ function J4(t) {
 `);
         s?.post({ type: "draftBack", text: F });
       },
-      onTurnDone: (x) =>
+      onTurnDone: (x) => {
+        u?.request();
         a?.notify(
           x.why
             ? {
@@ -35155,7 +35275,8 @@ function J4(t) {
                 ms: x.ms,
                 background: !1,
               },
-        ),
+        );
+      },
       onBackgroundChange: () => a?.changed(),
       now: () => Date.now(),
     });
@@ -35187,14 +35308,14 @@ function J4(t) {
       },
       n,
     ),
-    b = new ru({
+    b = (m = new ru({
       hermes: () => y()?.command,
       run: (x, F, he) => ci(x, as(process.env), F, he),
       pendingIds: () => c?.pendingIds() ?? new Set(),
       publish: (x) => s?.post({ type: "memoryReviewed", ...x }),
       refresh: () => c?.refresh(),
       log: n,
-    }),
+    })),
     I = new ou({
       run: () => {
         let x = y(),
@@ -35319,7 +35440,7 @@ function J4(t) {
           l.stop();
           break;
         case "newChat":
-          l.newChat();
+          l.newChat().then(() => u.request());
           break;
         case "action":
           switch (x.action) {

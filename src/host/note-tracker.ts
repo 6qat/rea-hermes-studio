@@ -46,6 +46,7 @@ const DEFAULT_PRESERVE_VIEWS = new Set([
 
 export class VaultNoteTracker {
   private state: TrackedNoteState | undefined;
+  private isNotifying = false;
   private readonly vaultBasePath: string;
   private readonly resolveWikiLink?: (linkpath: string, sourcePath?: string) => string | undefined;
   private readonly preserveViews: Set<string>;
@@ -62,19 +63,43 @@ export class VaultNoteTracker {
     return this.state;
   }
 
-  updateFromEditor(input: {
-    relPath: string;
-    cursorLine: number;
-    selection?: TrackedSelection;
-  }): void {
+  updateFromEditor(
+    input: {
+      relPath: string;
+      cursorLine: number;
+      selection?: TrackedSelection;
+    },
+    options?: { silent?: boolean },
+  ): void {
     const cleanRel = input.relPath.replace(/\\/g, "/");
-    this.state = {
+    const nextSelection =
+      input.selection && input.selection.text.length > 0 ? input.selection : undefined;
+    const nextState: TrackedNoteState = {
       relPath: cleanRel,
       absPath: path.join(this.vaultBasePath, cleanRel),
       cursorLine: Math.max(1, input.cursorLine),
-      ...(input.selection && input.selection.text.length > 0 ? { selection: input.selection } : {}),
+      ...(nextSelection ? { selection: nextSelection } : {}),
     };
-    this.onChange?.(this.state);
+
+    const prev = this.state;
+    const isSame =
+      prev !== undefined &&
+      prev.relPath === nextState.relPath &&
+      prev.absPath === nextState.absPath &&
+      prev.cursorLine === nextState.cursorLine &&
+      prev.selection?.startLine === nextState.selection?.startLine &&
+      prev.selection?.endLine === nextState.selection?.endLine &&
+      prev.selection?.text === nextState.selection?.text;
+
+    this.state = nextState;
+    if (!options?.silent && !isSame && !this.isNotifying) {
+      this.isNotifying = true;
+      try {
+        this.onChange?.(this.state);
+      } finally {
+        this.isNotifying = false;
+      }
+    }
   }
 
   onActiveLeafChanged(viewType: string | undefined): void {
