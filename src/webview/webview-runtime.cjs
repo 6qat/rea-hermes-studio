@@ -15972,9 +15972,10 @@ function Tg(e) {
   let a = r.replace(/[\\/]+$/, "").split(/[\\/]/).pop() ?? ``,
     o = /[\\/]/.test(r) && r.length > 0,
     s = /^[^.].*\.[A-Za-z0-9]{1,10}$/.test(a),
-    isTruncated = /(?:…|\.{2,3})$/.test(r),
+    isTruncated = /(?:…|\.{2,3})/.test(r),
+    hasArrow = /(?:→|->)/.test(r),
     hasSpace = r.includes(" ") && !/[;{}[\]\\~`!#$%^=]/.test(r);
-  if (o || s || isTruncated || hasSpace) return i && i > 0 ? { path: r, line: i } : { path: r };
+  if (o || s || isTruncated || hasArrow || hasSpace) return i && i > 0 ? { path: r, line: i } : { path: r };
 }
 function Eg(e) {
   let t = new Map();

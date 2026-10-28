@@ -50,6 +50,32 @@ describe("VaultDocumentRouter", () => {
         path: "_CRYPTO_/A raiz econômica do Bitcoin — Menger, Mises e Hayek (vídeo @CorySwan).md",
       },
       {
+        name: "Jev Engineering — modelo sem palavras cortando a conta dos agentes (post @imryven).md",
+        basename:
+          "Jev Engineering — modelo sem palavras cortando a conta dos agentes (post @imryven)",
+        path: "_AI_/Jev Engineering — modelo sem palavras cortando a conta dos agentes (post @imryven).md",
+      },
+      {
+        name: "LLM Provider Deals - Snapshot 2026-10-16.md",
+        basename: "LLM Provider Deals - Snapshot 2026-10-16",
+        path: "_CRON_JOBS_/LLM Provider Deals - Snapshot 2026-10-16.md",
+      },
+      {
+        name: "HarnessRouter — uma API para todos os agent harnesses (Hermes incluso).md",
+        basename: "HarnessRouter — uma API para todos os agent harnesses (Hermes incluso)",
+        path: "_AI_/HarnessRouter — uma API para todos os agent harnesses (Hermes incluso).md",
+      },
+      {
+        name: "Harness Engineering - How to Build AI Workflows That Never Fall Apart.md",
+        basename: "Harness Engineering - How to Build AI Workflows That Never Fall Apart",
+        path: "_AI_/Harness Engineering - How to Build AI Workflows That Never Fall Apart.md",
+      },
+      {
+        name: "Grok Bot + Opus 5.5 — time de engenharia 24-7 em 12 passos (artigo @0xjmori).md",
+        basename: "Grok Bot + Opus 5.5 — time de engenharia 24-7 em 12 passos (artigo @0xjmori)",
+        path: "_AI_/Grok Bot + Opus 5.5 — time de engenharia 24-7 em 12 passos (artigo @0xjmori).md",
+      },
+      {
         name: "identidade-1.jpg",
         basename: "identidade-1",
         path: "attachments/identidade-1.jpg",
@@ -179,6 +205,25 @@ describe("VaultDocumentRouter", () => {
       expect(router.isPathKnown("_CRYPTO_/A raiz econômica do Bitcoin…")).toBe(true);
       expect(router.isPathKnown("AI/Hermes to Headless Antigravity…")).toBe(true);
       expect(router.isPathKnown("AI/Hermes to Headless..")).toBe(true);
+
+      // Truncated note titles with ellipsis in the middle or beginning
+      expect(router.isPathKnown("_AI_/Jev Engineering…(post @imryven)")).toBe(true);
+      expect(router.isPathKnown("…AI Workflows That Never Fall Apart")).toBe(true);
+
+      // Arrow sequence / date range references
+      expect(
+        router.isPathKnown("_CRON_JOBS_/LLM Provider Deals - Snapshot 2026-10-16 → 10-28"),
+      ).toBe(true);
+
+      // Prefix match (omitted parenthetical or subtitle)
+      expect(router.isPathKnown("HarnessRouter — uma API para todos os agent harnesses")).toBe(
+        true,
+      );
+
+      // Prefix with slash in title normalized to hyphen
+      expect(router.isPathKnown("Grok Bot + Opus 5.5 — time de engenharia 24/7 em 12 passos")).toBe(
+        true,
+      );
     });
 
     it("recognizes absolute paths within and outside vault", () => {
@@ -266,6 +311,20 @@ And an explicit link [[AI/AI|Artificial Intelligence]] and fenced code:
       expect(openLeaves.length).toBe(1);
       expect(openLeaves[0].view.file?.path).toBe(
         "_CRYPTO_/A raiz econômica do Bitcoin — Menger, Mises e Hayek (vídeo @CorySwan).md",
+      );
+
+      // Fourth open: opens note with middle ellipsis
+      await router.routeUri("_AI_/Jev Engineering…(post @imryven)");
+      expect(openLeaves.length).toBe(1);
+      expect(openLeaves[0].view.file?.path).toBe(
+        "_AI_/Jev Engineering — modelo sem palavras cortando a conta dos agentes (post @imryven).md",
+      );
+
+      // Fifth open: opens note with range arrow
+      await router.routeUri("_CRON_JOBS_/LLM Provider Deals - Snapshot 2026-10-16 → 10-28");
+      expect(openLeaves.length).toBe(1);
+      expect(openLeaves[0].view.file?.path).toBe(
+        "_CRON_JOBS_/LLM Provider Deals - Snapshot 2026-10-16.md",
       );
     });
 

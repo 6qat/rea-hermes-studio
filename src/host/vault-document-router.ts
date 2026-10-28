@@ -89,25 +89,94 @@ export class VaultDocumentRouter {
     });
     if (exact) return exact;
 
-    // Truncated note name matching (ending with … or .. or ...)
-    const stripped = cleanTarget.replace(/(?:…|\.{2,3})$/, "").trim();
-    if (stripped.length >= 3 && stripped !== cleanTarget) {
-      const lastSlash = stripped.lastIndexOf("/");
-      const folder = lastSlash >= 0 ? stripped.slice(0, lastSlash).toLowerCase() : "";
-      const prefix = (lastSlash >= 0 ? stripped.slice(lastSlash + 1) : stripped).toLowerCase();
+    // 2. Sequence / Range arrows (e.g. "Snapshot 2026-10-16 → 10-28" or "A -> B")
+    if (/(?:→|->)/.test(cleanTarget)) {
+      const arrowParts = cleanTarget.split(/\s*(?:→|->)\s*/);
+      if (arrowParts[0] && arrowParts[0] !== cleanTarget) {
+        const res = this.findMatchingVaultFile(arrowParts[0]);
+        if (res) return res;
+      }
+      if (arrowParts[1]) {
+        const res = this.findMatchingVaultFile(arrowParts[1]);
+        if (res) return res;
+      }
+    }
 
-      return allFiles.find((file) => {
-        const filePath = (file.path ?? "").toLowerCase();
-        const fileName = (file.name ?? "").toLowerCase();
-        const baseName = (file.basename ?? "").toLowerCase();
-        if (folder) {
-          if (!filePath.startsWith(`${folder}/`)) return false;
-          return fileName.startsWith(prefix) || baseName.startsWith(prefix);
-        }
-        return (
-          fileName.startsWith(prefix) || baseName.startsWith(prefix) || filePath.startsWith(prefix)
-        );
-      });
+    // 3. Ellipsis matching anywhere (start, middle, or end with … or .. or ...)
+    if (/(?:…|\.{2,3})/.test(cleanTarget)) {
+      const rawParts = cleanTarget.split(/(?:…|\.{2,3})/);
+      const first = rawParts[0].trim();
+      const last = rawParts[rawParts.length - 1].trim();
+      let folder = "";
+      let lead = first;
+      const lastSlash = first.lastIndexOf("/");
+      if (lastSlash >= 0) {
+        folder = first.slice(0, lastSlash).toLowerCase();
+        lead = first.slice(lastSlash + 1);
+      }
+      lead = lead.toLowerCase();
+      const tail = last.toLowerCase();
+
+      if (lead.length >= 3 || tail.length >= 3) {
+        const match = allFiles.find((file) => {
+          const filePath = (file.path ?? "").toLowerCase();
+          const fileName = (file.name ?? "").toLowerCase();
+          const baseName = (file.basename ?? "").toLowerCase();
+
+          if (folder && !filePath.startsWith(`${folder}/`)) return false;
+
+          const leadOk =
+            !lead ||
+            baseName.startsWith(lead) ||
+            fileName.startsWith(lead) ||
+            (!folder && filePath.startsWith(lead));
+          const tailOk =
+            !tail ||
+            baseName.endsWith(tail) ||
+            fileName.endsWith(tail) ||
+            fileName.endsWith(`${tail}.md`);
+
+          return leadOk && tailOk;
+        });
+        if (match) return match;
+      }
+    }
+
+    // 4. Prefix match / Omitted subtitle or parenthetical
+    // E.g. "HarnessRouter — uma API para todos os agent harnesses" -> "HarnessRouter — uma API para todos os agent harnesses (Hermes incluso).md"
+    // E.g. "Grok Bot + Opus 5.5 — time de engenharia 24/7 em 12 passos" -> "Grok Bot + Opus 5.5 — time de engenharia 24-7 em 12 passos (artigo @0xjmori).md"
+    let targetFolder = "";
+    let targetRest = cleanTarget;
+    const slashIdx = cleanTarget.lastIndexOf("/");
+    if (slashIdx >= 0) {
+      const candFolder = cleanTarget.slice(0, slashIdx).toLowerCase();
+      const folderExists = allFiles.some((f) =>
+        (f.path ?? "").toLowerCase().startsWith(`${candFolder}/`),
+      );
+      if (folderExists) {
+        targetFolder = candFolder;
+        targetRest = cleanTarget.slice(slashIdx + 1);
+      }
+    }
+
+    const restVariants = [targetRest];
+    if (targetRest.includes("/")) {
+      restVariants.push(targetRest.replace(/\//g, "-"));
+    }
+
+    for (const variant of restVariants) {
+      const vLow = variant.trim().toLowerCase();
+      if (vLow.length >= 6) {
+        const match = allFiles.find((file) => {
+          const filePath = (file.path ?? "").toLowerCase();
+          const baseName = (file.basename ?? "").toLowerCase();
+
+          if (targetFolder && !filePath.startsWith(`${targetFolder}/`)) return false;
+
+          return baseName.startsWith(vLow);
+        });
+        if (match) return match;
+      }
     }
 
     return undefined;
