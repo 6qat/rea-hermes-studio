@@ -117,6 +117,7 @@ describe("VaultDocumentRouter", () => {
         const leaf: any = {
           view: {
             file: null,
+            getViewType: () => "markdown",
             editor: {
               setCursor: (pos: any) => {
                 cursorSet = pos;
@@ -172,6 +173,7 @@ describe("VaultDocumentRouter", () => {
 
     return {
       router,
+      hostAdapter,
       tmpVault,
       externalFile,
       openedFiles,
@@ -287,10 +289,41 @@ And an explicit link [[AI/AI|Artificial Intelligence]] and fenced code:
       expect(openedFiles.length).toBe(1);
       expect(openLeaves[0].currentMode).toBe("preview");
 
-      // Second open: reuses existing leaf
+      // Second open: reuses existing leaf (same active tab)
       const res2 = await router.routeUri("obsidian://open?file=Meus%20Documentos.md");
       expect(res2).toBe(true);
-      expect(activeLeaves.length).toBeGreaterThan(0);
+      expect(openLeaves.length).toBe(1);
+      expect(openedFiles.length).toBe(1);
+      expect(activeLeaves[activeLeaves.length - 1]).toBe(openLeaves[0]);
+    });
+
+    it("focuses the existing tab when a blank tab is active instead of opening a duplicate", async () => {
+      const { router, openedFiles, openLeaves, activeLeaves, hostAdapter } = createTestHarness();
+
+      // Open note in first tab
+      await router.routeUri("wikilink://Meus%20Documentos");
+      expect(openLeaves.length).toBe(1);
+      expect(openLeaves[0].view.file?.path).toBe("Meus Documentos.md");
+      const noteLeaf = openLeaves[0];
+      const openCountAfterFirst = openedFiles.length;
+
+      // Simulate Obsidian "+" creating a blank tab that becomes active
+      const blankLeaf = hostAdapter.getLeaf!();
+      activeLeaves.push(blankLeaf);
+      expect(openLeaves.length).toBe(2);
+      expect(blankLeaf.view.file).toBeNull();
+      expect(hostAdapter.getActiveLeaf?.()).toBe(blankLeaf);
+
+      // Open the same note again while the blank tab is focused
+      const res = await router.routeUri("obsidian://open?file=Meus%20Documentos.md");
+      expect(res).toBe(true);
+
+      // Existing note tab is focused; blank tab stays empty; no second openFile
+      expect(activeLeaves[activeLeaves.length - 1]).toBe(noteLeaf);
+      expect(blankLeaf.view.file).toBeNull();
+      expect(openLeaves.length).toBe(2);
+      expect(openedFiles.length).toBe(openCountAfterFirst);
+      expect(noteLeaf.view.file?.path).toBe("Meus Documentos.md");
     });
 
     it("replaces active note in current leaf without opening a new tab", async () => {

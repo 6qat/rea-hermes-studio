@@ -241,6 +241,27 @@ export class VaultDocumentRouter {
   }
 
   /**
+   * Finds an existing workspace leaf already showing the given vault file path.
+   * Prefers markdown leaves, then falls back to a full leaf scan.
+   */
+  private findLeafForFilePath(filePath: string): any | null {
+    if (!filePath) return null;
+
+    const mdLeaves = this.host.getLeavesOfType?.("markdown") ?? [];
+    for (const leaf of mdLeaves) {
+      if (leaf?.view?.file?.path === filePath) return leaf;
+    }
+
+    let matched: any = null;
+    this.host.iterateAllLeaves?.((leaf) => {
+      if (!matched && leaf?.view?.file?.path === filePath) {
+        matched = leaf;
+      }
+    });
+    return matched;
+  }
+
+  /**
    * Canonical domain method for Vault Reference Linkification:
    * Scans markdown text and converts referenced vault notes and WikiLinks
    * into clickable reading-view links.
@@ -637,18 +658,28 @@ export class VaultDocumentRouter {
       // otherwise use Reading View mode ("preview") for clean rendered markdown.
       const targetMode = selection ? "source" : "preview";
 
-      // Target the active leaf in the main editing area so the clicked file replaces
-      // the currently active note instead of opening a new tab.
-      const leaf: any =
-        this.host.getActiveLeaf?.() ??
-        this.host.getMostRecentLeaf?.() ??
-        this.host.getLeaf?.(false);
+      // If the note is already open in another tab, focus that leaf instead of
+      // loading a second copy into the (possibly blank) active tab.
+      const existingLeaf = this.findLeafForFilePath(abstractFile.path);
+      let leaf: any = existingLeaf;
 
-      if (leaf && typeof leaf.openFile === "function") {
-        await leaf.openFile(abstractFile, {
-          active: true,
-          state: { mode: targetMode },
-        });
+      if (!leaf) {
+        // Target the active leaf in the main editing area so the clicked file replaces
+        // the currently active note instead of opening a new tab.
+        leaf =
+          this.host.getActiveLeaf?.() ??
+          this.host.getMostRecentLeaf?.() ??
+          this.host.getLeaf?.(false);
+
+        if (leaf && typeof leaf.openFile === "function") {
+          await leaf.openFile(abstractFile, {
+            active: true,
+            state: { mode: targetMode },
+          });
+        }
+      }
+
+      if (leaf) {
         this.host.revealLeaf?.(leaf);
         this.host.setActiveLeaf?.(leaf, { focus: true });
       }
