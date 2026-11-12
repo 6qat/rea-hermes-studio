@@ -1,3 +1,5 @@
+import fs from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 import {
   addIcon,
@@ -11,6 +13,11 @@ import {
 import { type ActivatedHermesCore, activateHermesCore } from "./host/hermes-core-bridge";
 import { VaultNoteTracker } from "./host/note-tracker";
 import { createObsidianVscodeShim, SimpleUri } from "./host/obsidian-shim";
+import {
+  createGithubSkillHttp,
+  OBSIDIAN_SKILLS_SYNC_INTERVAL_MS,
+  syncObsidianSkills,
+} from "./host/obsidian-skills-sync";
 import { VaultDocumentRouter } from "./host/vault-document-router";
 import { createWorkspaceLeafHost, type WorkspaceLeafHost } from "./host/workspace-leaf-host";
 import { DEFAULT_HERMES_SETTINGS, type HermesPluginSettings, HermesSettingTab } from "./settings";
@@ -37,6 +44,16 @@ export {
   HermesDocItemView,
 };
 
+function leafIsPinned(leaf: WorkspaceLeaf): boolean {
+  return (leaf as WorkspaceLeaf & { pinned?: boolean }).pinned === true;
+}
+
+function hermesConfigFile(): string {
+  const configured = process.env.HERMES_HOME?.trim();
+  const home = configured ? configured : path.join(os.homedir(), ".hermes");
+  return path.join(home, "config.yaml");
+}
+
 // Hermes Studio 100x100 scaled icon for Obsidian's addIcon API
 const HERMES_OBSIDIAN_ICON_SVG = `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path fill="currentColor" d="M4 4h3.2v6.6h7.6V4H18v16h-3.2v-6.6H7.2V20H4z"/><path fill="currentColor" d="M18 4.2c1.9-1.5 3.6-1.6 5-.9-1.1.4-2 1.1-2.6 2.1.8-.1 1.6 0 2.3.4-1.3.4-2.6 1.3-3.4 2.6H18z"/></svg>`;
 
@@ -47,6 +64,7 @@ export default class HermesStudioPlugin extends Plugin {
   router!: VaultDocumentRouter;
   leaves!: WorkspaceLeafHost;
   private core: ActivatedHermesCore | undefined;
+  private obsidianSkillsTail: Promise<void> = Promise.resolve();
   private ribbonEl: HTMLElement | undefined;
   private activeSideView: HermesStudioView | undefined;
   private activeEditorView: HermesStudioView | undefined;
@@ -101,7 +119,7 @@ export default class HermesStudioPlugin extends Plugin {
         }
         // 2. Otherwise get the most recently active leaf in the root split (main editor area)
         const mostRecent = this.app?.workspace?.getMostRecentLeaf?.();
-        if (mostRecent && !mostRecent.pinned) {
+        if (mostRecent && !leafIsPinned(mostRecent)) {
           const viewType = mostRecent.view?.getViewType?.() ?? mostRecent.getViewState?.()?.type;
           if (!viewType?.startsWith("hermes-")) {
             const root = (mostRecent as any).getRoot?.();
@@ -124,7 +142,7 @@ export default class HermesStudioPlugin extends Plugin {
         // 4. Fallback: find any unpinned markdown leaf in rootSplit
         const mdLeaves = this.app?.workspace?.getLeavesOfType?.("markdown") ?? [];
         for (const l of mdLeaves) {
-          if (!l.pinned) {
+          if (!leafIsPinned(l)) {
             const root = (l as any).getRoot?.();
             if (!root || root === this.app?.workspace?.rootSplit) {
               return l;
@@ -339,6 +357,15 @@ export default class HermesStudioPlugin extends Plugin {
 
     // Register all Hermes Studio commands in Obsidian Command Palette
     this.registerHermesCommands();
+
+    if (typeof this.registerInterval === "function") {
+      this.registerInterval(
+        window.setInterval(() => {
+          void this.syncObsidianSkills(false);
+        }, OBSIDIAN_SKILLS_SYNC_INTERVAL_MS),
+      );
+    }
+    void this.syncObsidianSkills(false);
   }
 
   private safeRegisterView(viewType: string, factory: (leaf: WorkspaceLeaf) => any): void {
@@ -636,6 +663,11 @@ export default class HermesStudioPlugin extends Plugin {
         run: () => this.executeHermesCommand("hermesStudio.showSkillChanges"),
       },
       {
+        id: "sync-obsidian-skills",
+        name: "Check Obsidian Skills",
+        run: () => this.syncObsidianSkills(true),
+      },
+      {
         id: "review-memory",
         name: "Review Memory Proposals in Terminal",
         run: () => this.executeHermesCommand("hermesStudio.reviewMemory"),
@@ -663,6 +695,84 @@ export default class HermesStudioPlugin extends Plugin {
 
   async executeHermesCommand(commandId: string, ...args: any[]): Promise<any> {
     return this.vscodeShim?.commands.executeCommand(commandId, ...args);
+  }
+
+  syncObsidianSkills(manual = false): Promise<void> {
+    const run = this.obsidianSkillsTail.then(() => this.runObsidianSkillsSync(manual));
+    this.obsidianSkillsTail = run.then(
+      () => undefined,
+      () => undefined,
+    );
+    return run;
+  }
+
+  private async runObsidianSkillsSync(manual: boolean): Promise<void> {
+    if (this.settings.syncObsidianSkills === false) return;
+    const adapter = this.app?.vault?.adapter as
+      | {
+          exists?: (relPath: string) => Promise<boolean>;
+          read?: (relPath: string) => Promise<string>;
+          write?: (relPath: string, data: string) => Promise<void>;
+          mkdir?: (relPath: string) => Promise<void>;
+          list?: (relPath: string) => Promise<{ files: string[]; folders: string[] }>;
+        }
+      | undefined;
+    if (
+      !adapter ||
+      typeof adapter.exists !== "function" ||
+      typeof adapter.read !== "function" ||
+      typeof adapter.write !== "function" ||
+      typeof adapter.mkdir !== "function" ||
+      typeof adapter.list !== "function"
+    ) {
+      return;
+    }
+    const vaultAdapter = adapter;
+    try {
+      const outcome = await syncObsidianSkills({
+        vault: {
+          exists: (relPath) => vaultAdapter.exists!(relPath),
+          read: (relPath) => vaultAdapter.read!(relPath),
+          write: (relPath, data) => vaultAdapter.write!(relPath, data),
+          mkdir: (relPath) => vaultAdapter.mkdir!(relPath),
+          list: (relPath) => vaultAdapter.list!(relPath),
+        },
+        http: createGithubSkillHttp(),
+        vaultBasePath: this.getVaultBasePath(),
+        now: Date.now(),
+        checkedAt: this.settings.obsidianSkillsCheckedAt,
+        manual,
+        enabled: true,
+        home: os.homedir(),
+        readConfig: async () => {
+          try {
+            return await fs.readFile(hermesConfigFile(), "utf8");
+          } catch (error) {
+            if ((error as NodeJS.ErrnoException).code === "ENOENT") return "";
+            throw error;
+          }
+        },
+        writeConfig: async (yaml) => {
+          const file = hermesConfigFile();
+          await fs.mkdir(path.dirname(file), { recursive: true });
+          await fs.writeFile(file, yaml, "utf8");
+        },
+      });
+      if (typeof outcome.checkedAt === "number") {
+        this.settings.obsidianSkillsCheckedAt = outcome.checkedAt;
+        await this.saveSettings("obsidianSkillsCheckedAt");
+      }
+      if (outcome.notice) new Notice(outcome.notice);
+      if (outcome.ok && (outcome.filesChanged || outcome.configChanged)) {
+        try {
+          await this.executeHermesCommand("hermesStudio.restart");
+        } catch {
+          // Skills are already on disk; the next Hermes start loads them.
+        }
+      }
+    } catch {
+      new Notice("Could not sync Obsidian skills.");
+    }
   }
 
   async loadSettings(): Promise<void> {

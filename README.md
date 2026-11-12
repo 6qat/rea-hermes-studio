@@ -150,6 +150,8 @@ Hermes Studio is configured with `"isDesktopOnly": true` and adheres strictly to
   - **Command Injection Prevention**: All process executions pass discrete string argument arrays (`args: string[]`) directly to executables without shell interpretation (`shell: false`). No unvalidated shell strings or remote shell scripts are ever executed.
 - **External Filesystem Access (`fs` / `fs/promises`)**:
   - **Scoped strictly outside the Obsidian vault**: Direct filesystem access via Node.js `fs` is used solely to interact with the external Hermes Agent configuration, memories, and skills located in the user's home directory (`~/.hermes/` or `$HERMES_HOME`), and to verify the path of the local `hermes` CLI binary. No vault files are modified or read using raw `node:fs`.
+- **Official Obsidian skills**:
+  - On load, and about once a day, the plugin requests `https://api.github.com/repos/obsidianmd/obsidian-skills` and the matching raw files under `plugins/obsidian/skills/`. Missing skills are written through the vault adapter to `.agents/skills/`. The marker `.agents/skills/.hermes-studio-obsidian-skills.json` records the installed commit and a sha256 for each file. Later updates replace only files that still match those hashes. Copies already present in `.claude/skills/` are not overwritten. The plugin appends those skill directories to `skills.external_dirs` in `~/.hermes/config.yaml` (or `$HERMES_HOME/config.yaml`) and restarts Hermes when a skill file or that list changes.
 - **Clipboard Access (`navigator.clipboard`)**:
   - Used exclusively when the user clicks the "Copy" action button on AI chat responses, code blocks, or prompt templates.
 

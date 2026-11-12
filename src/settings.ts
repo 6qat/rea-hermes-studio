@@ -9,6 +9,8 @@ export interface HermesPluginSettings {
   modeId: "default" | "accept_edits" | "dont_ask";
   trace: boolean;
   statusBarPadding: number;
+  syncObsidianSkills: boolean;
+  obsidianSkillsCheckedAt?: number;
   webviewState?: any;
   workspaceState?: Record<string, any>;
 }
@@ -21,6 +23,7 @@ export const DEFAULT_HERMES_SETTINGS: HermesPluginSettings = {
   modeId: "default",
   trace: false,
   statusBarPadding: 14,
+  syncObsidianSkills: true,
   webviewState: undefined,
   workspaceState: {},
 };
@@ -148,6 +151,26 @@ export class HermesSettingTab extends PluginSettingTab {
         toggle.setValue(this.plugin.settings.trace).onChange(async (value) => {
           this.plugin.settings.trace = value;
           await this.plugin.saveSettings("trace");
+        }),
+      );
+
+    new Setting(containerEl)
+      .setName("Obsidian skills")
+      .setDesc(
+        "Install official Obsidian skills from obsidianmd/obsidian-skills into this vault (.agents/skills) and update the copies Hermes Studio installed about once a day. Skills already in .claude/skills are left in place.",
+      )
+      .addToggle((toggle) =>
+        toggle
+          .setValue(this.plugin.settings.syncObsidianSkills !== false)
+          .onChange(async (value) => {
+            this.plugin.settings.syncObsidianSkills = value;
+            await this.plugin.saveSettings("syncObsidianSkills");
+            if (value) void this.plugin.syncObsidianSkills(true);
+          }),
+      )
+      .addButton((btn) =>
+        btn.setButtonText("Check now").onClick(() => {
+          void this.plugin.syncObsidianSkills(true);
         }),
       );
 
