@@ -1,4 +1,4 @@
-import { ItemView, type WorkspaceLeaf } from "obsidian";
+import { ItemView, Menu, type WorkspaceLeaf } from "obsidian";
 import { SimpleEventEmitter, type SimpleUri } from "../host/obsidian-shim";
 import { resolveVaultClick } from "../host/vault-click-port";
 import type HermesStudioPlugin from "../main";
@@ -82,6 +82,14 @@ export class HermesStudioView extends ItemView {
       },
       linkifyVaultText: (text) => this.plugin.linkifyVaultReferences(text),
       isVaultPathKnown: (p) => this.plugin.isVaultPathKnown(p),
+      showContextMenu: (event, run) => {
+        const menu = new Menu();
+        menu.addItem((item) => {
+          item.setTitle("Open in new tab");
+          item.onClick(() => run());
+        });
+        menu.showAtMouseEvent(event);
+      },
     });
 
     // Support direct drag-and-drop of Obsidian notes from File Explorer without requiring Shift

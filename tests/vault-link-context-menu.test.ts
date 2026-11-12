@@ -54,6 +54,33 @@ describe("attachVaultLinkContextMenu", () => {
     dispose();
   });
 
+  it("opens a new tab for a vault file path rendered as code", () => {
+    const host = document.createElement("div");
+    const shadow = host.attachShadow({ mode: "open" });
+    const root = document.createElement("div");
+    const code = document.createElement("code");
+    code.className = "md-path is-file";
+    code.dataset.path = "AI/AI.md";
+    code.dataset.line = "4";
+    code.textContent = "AI/AI.md:4";
+    root.append(code);
+    shadow.append(root);
+    document.body.append(host);
+    const postMessage = vi.fn();
+    const dispose = attachVaultLinkContextMenu(root, postMessage);
+
+    code.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true }));
+    root.querySelector("button")?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+
+    expect(postMessage).toHaveBeenCalledWith({
+      type: "openFile",
+      path: "AI/AI.md",
+      line: 4,
+      newTab: true,
+    });
+    dispose();
+  });
+
   it("does not intercept a left click", () => {
     const { vault, postMessage, dispose } = mount();
 

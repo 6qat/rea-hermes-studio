@@ -1,8 +1,6 @@
-export interface VaultLinkOpenMessage {
-  type: "openLink";
-  href: string;
-  newTab: true;
-}
+export type VaultLinkOpenMessage =
+  | { type: "openLink"; href: string; newTab: true }
+  | { type: "openFile"; path: string; line?: number; newTab: true };
 
 const MENU_CLASS = "hermes-vault-link-menu";
 
@@ -26,6 +24,7 @@ function closestVaultLink(root: HTMLElement, target: EventTarget | null): HTMLEl
 export function attachVaultLinkContextMenu(
   root: HTMLElement,
   postMessage: (msg: VaultLinkOpenMessage) => void,
+  showContextMenu?: (event: MouseEvent, run: () => void) => void,
 ): () => void {
   const doc = root.ownerDocument;
   let menu: HTMLElement | null = null;
@@ -37,10 +36,31 @@ export function attachVaultLinkContextMenu(
 
   const onContextMenu = (event: Event) => {
     const mouse = event as MouseEvent;
+    const target = mouse.target instanceof Element ? mouse.target : null;
     const link = closestVaultLink(root, mouse.target);
-    if (!link) return;
+    const code = target?.closest<HTMLElement>("code.md-path.is-file") ?? null;
+    const codePath = code && root.contains(code) ? (code.dataset.path ?? "") : "";
+    const codeLine = Number(code?.dataset.line);
+    const line = Number.isInteger(codeLine) && codeLine > 0 ? codeLine : undefined;
+    if (!link && !codePath) return;
     mouse.preventDefault();
     close();
+    const run = () => {
+      if (link) {
+        postMessage({ type: "openLink", href: link.dataset.href ?? "", newTab: true });
+      } else {
+        postMessage({
+          type: "openFile",
+          path: codePath,
+          ...(line ? { line } : {}),
+          newTab: true,
+        });
+      }
+    };
+    if (showContextMenu) {
+      showContextMenu(mouse, run);
+      return;
+    }
 
     menu = doc.createElement("div");
     menu.className = MENU_CLASS;
@@ -50,7 +70,7 @@ export function attachVaultLinkContextMenu(
     item.type = "button";
     item.textContent = "Open in new tab";
     item.addEventListener("click", () => {
-      postMessage({ type: "openLink", href: link.dataset.href ?? "", newTab: true });
+      run();
       close();
     });
     menu.append(item);
@@ -66,9 +86,11 @@ export function attachVaultLinkContextMenu(
     if ((event as KeyboardEvent).key === "Escape") close();
   };
 
+  const onScroll = () => close();
+
   root.addEventListener("contextmenu", onContextMenu);
   root.addEventListener("pointerdown", onPointerDown);
-  root.addEventListener("scroll", close, true);
+  root.addEventListener("scroll", onScroll, true);
   doc.addEventListener("keydown", onKeyDown);
 
   if (!doc.getElementById("hermes-vault-link-menu-style")) {
@@ -108,7 +130,7 @@ export function attachVaultLinkContextMenu(
     close();
     root.removeEventListener("contextmenu", onContextMenu);
     root.removeEventListener("pointerdown", onPointerDown);
-    root.removeEventListener("scroll", close, true);
+    root.removeEventListener("scroll", onScroll, true);
     doc.removeEventListener("keydown", onKeyDown);
   };
 }

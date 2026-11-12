@@ -13,6 +13,7 @@ export interface HermesWebviewMountOptions {
   linkifyVaultText?: (markdownText: string) => string;
   isVaultPathKnown?: (path: string) => boolean;
   promptHistory?: PromptHistoryBuffer;
+  showContextMenu?: (event: MouseEvent, run: () => void) => void;
 }
 
 export interface HermesWebviewMounted {
@@ -111,9 +112,13 @@ export function mountHermesWebview(options: HermesWebviewMountOptions): HermesWe
     },
   });
 
-  const disposeVaultLinkMenu = attachVaultLinkContextMenu(rootEl, (msg) => {
-    onMessageFromWebview(msg);
-  });
+  const disposeVaultLinkMenu = attachVaultLinkContextMenu(
+    rootEl,
+    (msg) => {
+      onMessageFromWebview(msg);
+    },
+    options.showContextMenu,
+  );
 
   return {
     rootEl,

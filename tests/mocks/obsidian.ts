@@ -75,6 +75,26 @@ export class Plugin extends Component {
   async saveData(_data: any): Promise<void> {}
 }
 
+class MenuItem {
+  setTitle(_title: string): this {
+    return this;
+  }
+  setIcon(_icon: string): this {
+    return this;
+  }
+  onClick(_cb: () => void): this {
+    return this;
+  }
+}
+
+export class Menu {
+  addItem(cb: (item: MenuItem) => void): this {
+    cb(new MenuItem());
+    return this;
+  }
+  showAtMouseEvent(_event: MouseEvent): void {}
+}
+
 export class ItemView extends Component {
   leaf: any;
   app: any;

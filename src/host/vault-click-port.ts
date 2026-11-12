@@ -41,7 +41,14 @@ export async function resolveVaultClick(
 
   if (msg?.type === "openFile" && msg.path) {
     const selection = msg.line ? { startLine: msg.line, endLine: msg.line } : undefined;
-    const opened = await router.routeUri(msg.path, selection ? { selection } : undefined);
+    const newTab = msg.newTab === true;
+    const opened =
+      selection || newTab
+        ? await router.routeUri(msg.path, {
+            ...(selection ? { selection } : {}),
+            ...(newTab ? { newTab: true } : {}),
+          })
+        : await router.routeUri(msg.path);
     if (opened) return { disposition: "handled" };
     return { disposition: "forward" };
   }

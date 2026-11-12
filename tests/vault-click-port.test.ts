@@ -81,6 +81,20 @@ describe("resolveVaultClick", () => {
     expect(routeUri).toHaveBeenNthCalledWith(2, "wikilink://Note");
   });
 
+  it("forwards newTab on openFile", async () => {
+    const routeUri = vi.fn(async () => true);
+    const resolution = await resolveVaultClick(
+      { type: "openFile", path: "AI/AI.md", line: 4, newTab: true },
+      router({ routeUri }),
+    );
+
+    expect(resolution).toEqual({ disposition: "handled" });
+    expect(routeUri).toHaveBeenCalledWith("AI/AI.md", {
+      selection: { startLine: 4, endLine: 4 },
+      newTab: true,
+    });
+  });
+
   it("forwards messages that are not vault navigation", async () => {
     const routeUri = vi.fn(async () => true);
     const resolution = await resolveVaultClick({ type: "ready" }, router({ routeUri }));
