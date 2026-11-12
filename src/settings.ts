@@ -1,8 +1,10 @@
 import { type App, PluginSettingTab, Setting } from "obsidian";
+import { defaultTerminalShell } from "./host/integrated-terminal";
 import type HermesStudioPlugin from "./main";
 
 export interface HermesPluginSettings {
   path: string;
+  terminalShell: string;
   environment: Record<string, string>;
   autoStart: boolean;
   notifications: "all" | "permissions" | "off";
@@ -17,6 +19,7 @@ export interface HermesPluginSettings {
 
 export const DEFAULT_HERMES_SETTINGS: HermesPluginSettings = {
   path: "",
+  terminalShell: defaultTerminalShell(),
   environment: {},
   autoStart: true,
   notifications: "all",
@@ -90,6 +93,21 @@ export class HermesSettingTab extends PluginSettingTab {
         btn.setButtonText("Restart Hermes").onClick(() => {
           this.plugin.executeHermesCommand("hermesStudio.restart");
         }),
+      );
+
+    new Setting(containerEl)
+      .setName("Terminal shell")
+      .setDesc(
+        "Executable opened by the Terminal tab. Linux and macOS start at /bin/sh; type another path, such as /bin/zsh or /bin/bash, to use that shell. On macOS, Terminal.app usually opens /bin/zsh. Windows stores cmd.exe here. The tab needs a POSIX pty, so it does not open a shell on Windows.",
+      )
+      .addText((text) =>
+        text
+          .setPlaceholder(defaultTerminalShell())
+          .setValue(this.plugin.settings.terminalShell || defaultTerminalShell())
+          .onChange(async (value) => {
+            this.plugin.settings.terminalShell = value.trim() || defaultTerminalShell();
+            await this.plugin.saveSettings("terminalShell");
+          }),
       );
 
     new Setting(containerEl)

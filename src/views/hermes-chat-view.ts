@@ -1,7 +1,13 @@
 import { ItemView, Menu, type WorkspaceLeaf } from "obsidian";
+import {
+  createIntegratedTerminal,
+  defaultTerminalShell,
+  type IntegratedTerminal,
+} from "../host/integrated-terminal";
 import { SimpleEventEmitter, type SimpleUri } from "../host/obsidian-shim";
 import { resolveVaultClick } from "../host/vault-click-port";
 import type HermesStudioPlugin from "../main";
+import { isTerminalClientMessage, type TerminalClientMessage } from "../webview/terminal-panel";
 import { type HermesWebviewMounted, mountHermesWebview } from "../webview/webview-mount";
 import { type DiffViewPayload, renderDiffIntoContainer } from "./hermes-diff-view";
 
@@ -11,6 +17,7 @@ export const HERMES_DIFF_VIEW_TYPE = "hermes-studio-diff-view";
 
 export class HermesStudioView extends ItemView {
   private mounted: HermesWebviewMounted | undefined;
+  private terminal: IntegratedTerminal | undefined;
   private receiveEmitter = new SimpleEventEmitter<any>();
   private visibilityEmitter = new SimpleEventEmitter<void>();
   private disposeEmitter = new SimpleEventEmitter<void>();
@@ -70,6 +77,10 @@ export class HermesStudioView extends ItemView {
       shadowRoot,
       place: this.place,
       onMessageFromWebview: async (msg) => {
+        if (isTerminalClientMessage(msg)) {
+          this.handleTerminalMessage(msg);
+          return;
+        }
         const resolution = await resolveVaultClick(msg, this.plugin.router);
         if (resolution.reply) this.mounted?.postMessageToWebview(resolution.reply);
         if (resolution.disposition === "handled") return;
@@ -180,8 +191,37 @@ export class HermesStudioView extends ItemView {
     this.isViewVisible = false;
     this.visibilityEmitter.fire();
     this.disposeEmitter.fire();
+    this.terminal?.dispose();
+    this.terminal = undefined;
     this.mounted?.destroy();
     this.mounted = undefined;
+  }
+
+  private handleTerminalMessage(msg: TerminalClientMessage): void {
+    const session = this.ensureTerminal();
+    if (msg.type === "terminal:open") session.open(msg.cols, msg.rows);
+    else if (msg.type === "terminal:input") session.input(msg.data);
+    else if (msg.type === "terminal:resize") session.resize(msg.cols, msg.rows);
+    else session.restart();
+  }
+
+  private ensureTerminal(): IntegratedTerminal {
+    if (!this.terminal) {
+      this.terminal = createIntegratedTerminal({
+        cwd: this.plugin.getVaultBasePath(),
+        shell: () => this.plugin.settings.terminalShell || defaultTerminalShell(),
+        onData: (data) => {
+          this.mounted?.postMessageToWebview({ type: "terminal:data", data });
+        },
+        onExit: (code) => {
+          this.mounted?.postMessageToWebview({ type: "terminal:exit", code });
+        },
+        onError: (message) => {
+          this.mounted?.postMessageToWebview({ type: "terminal:error", message });
+        },
+      });
+    }
+    return this.terminal;
   }
 }
 

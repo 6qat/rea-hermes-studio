@@ -4160,6 +4160,7 @@ var ms,
       { id: `memory`, label: `Memory` },
       { id: `capabilities`, label: `Capabilities` },
       { id: `agents`, label: `Agents` },
+      { id: `terminal`, label: `Terminal` },
     ]),
       (hs = (e) => ms.some((t) => t.id === e)),
       (gs = (e) => `hs-tab-${e}`),
@@ -20278,19 +20279,24 @@ function Pb(e, t) {
           return H(r);
         },
       });
+    },
+    f = (e) => {
+      K(e, termMarker());
     };
   (J(a, (e) => {
-    H(n)
-      ? H(n).found
-        ? t.tab === `learning`
-          ? e(c, 2)
-          : t.tab === `memory`
-            ? e(l, 3)
-            : t.tab === `capabilities`
-              ? e(u, 4)
-              : e(d, -1)
-        : e(s, 1)
-      : e(o);
+    t.tab === `terminal`
+      ? e(f, 5)
+      : H(n)
+        ? H(n).found
+          ? t.tab === `learning`
+            ? e(c, 2)
+            : t.tab === `memory`
+              ? e(l, 3)
+              : t.tab === `capabilities`
+                ? e(u, 4)
+                : e(d, -1)
+          : e(s, 1)
+        : e(o);
   }),
     k(i),
     B(
@@ -20305,6 +20311,7 @@ function Pb(e, t) {
 var Fb,
   Ib,
   Lb,
+  termMarker,
   Rb = o(() => {
     (Vo(),
       Lo(),
@@ -20320,7 +20327,8 @@ var Fb,
       (Ib = G(`<p class="p-4 text-small wrap-break-word text-muted"> </p>`)),
       (Lb = G(
         `<div role="tabpanel" class="absolute inset-0 overflow-y-auto"><!></div>`,
-      )));
+      )),
+      (termMarker = G(`<div id="hs-terminal-marker"></div>`)));
   });
 function zb(e, t) {
   pt(t, !0);

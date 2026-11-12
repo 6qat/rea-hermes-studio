@@ -100,6 +100,7 @@ export const THEME_BRIDGE_CSS = `
 }
 
 #hermes-studio-root {
+  position: relative;
   display: flex;
   flex-direction: column;
   width: 100%;
@@ -208,5 +209,28 @@ button,
   width: 100%;
   height: 100%;
   border: 0;
+}
+
+#hermes-terminal-layer {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 2;
+  display: none;
+  overflow: hidden;
+  box-sizing: border-box;
+  background: var(--vscode-editor-background);
+  color: var(--vscode-foreground);
+  font-family: var(--vscode-editor-font-family);
+  font-size: var(--vscode-editor-font-size);
+}
+
+#hermes-terminal-layer.is-active {
+  display: block;
+}
+
+#hermes-terminal-layer .xterm {
+  height: 100%;
 }
 `;

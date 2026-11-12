@@ -1,4 +1,5 @@
 import { PromptHistoryBuffer } from "./prompt-history-buffer";
+import { attachTerminalPanel } from "./terminal-panel";
 import { HERMES_WEBVIEW_BASE_CSS, THEME_BRIDGE_CSS } from "./theme-bridge";
 import { attachVaultLinkContextMenu } from "./vault-link-context-menu";
 import { createHermesWebviewInstance } from "./webview-runtime.cjs";
@@ -120,6 +121,15 @@ export function mountHermesWebview(options: HermesWebviewMountOptions): HermesWe
     options.showContextMenu,
   );
 
+  const terminalPanel = attachTerminalPanel({
+    rootEl,
+    postMessage: (msg) => onMessageFromWebview(msg),
+    onHostMessage(listener) {
+      hostMessageListeners.add(listener);
+      return () => hostMessageListeners.delete(listener);
+    },
+  });
+
   return {
     rootEl,
     appEl,
@@ -131,6 +141,7 @@ export function mountHermesWebview(options: HermesWebviewMountOptions): HermesWe
       }
     },
     destroy() {
+      terminalPanel.destroy();
       disposeVaultLinkMenu();
       hostMessageListeners.clear();
       runtime?.unmount?.();
