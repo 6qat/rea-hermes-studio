@@ -14,7 +14,7 @@ export interface VaultClickRouter {
   isPathKnown(path: string): boolean;
   routeUri(
     filePathOrLink: string,
-    options?: { selection?: { startLine: number; endLine: number } },
+    options?: { selection?: { startLine: number; endLine: number }; newTab?: boolean },
   ): Promise<boolean>;
 }
 
@@ -48,7 +48,10 @@ export async function resolveVaultClick(
 
   if (msg?.type === "openLink" && msg.href) {
     if (isVaultNavigationHref(msg.href)) {
-      const opened = await router.routeUri(msg.href);
+      const opened =
+        msg.newTab === true
+          ? await router.routeUri(msg.href, { newTab: true })
+          : await router.routeUri(msg.href);
       if (opened) return { disposition: "handled" };
     }
     return { disposition: "forward" };

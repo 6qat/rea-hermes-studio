@@ -1,5 +1,6 @@
 import { PromptHistoryBuffer } from "./prompt-history-buffer";
 import { HERMES_WEBVIEW_BASE_CSS, THEME_BRIDGE_CSS } from "./theme-bridge";
+import { attachVaultLinkContextMenu } from "./vault-link-context-menu";
 import { createHermesWebviewInstance } from "./webview-runtime.cjs";
 import { youtubeEmbedFromHtml, youtubeEmbedHtml } from "./youtube-embed";
 
@@ -110,6 +111,10 @@ export function mountHermesWebview(options: HermesWebviewMountOptions): HermesWe
     },
   });
 
+  const disposeVaultLinkMenu = attachVaultLinkContextMenu(rootEl, (msg) => {
+    onMessageFromWebview(msg);
+  });
+
   return {
     rootEl,
     appEl,
@@ -121,6 +126,7 @@ export function mountHermesWebview(options: HermesWebviewMountOptions): HermesWe
       }
     },
     destroy() {
+      disposeVaultLinkMenu();
       hostMessageListeners.clear();
       runtime?.unmount?.();
       shadowRoot.replaceChildren();

@@ -67,6 +67,20 @@ describe("resolveVaultClick", () => {
     expect(routeUri).not.toHaveBeenCalled();
   });
 
+  it("forwards newTab on openLink and omits it otherwise", async () => {
+    const routeUri = vi.fn(async () => true);
+    const clickRouter = router({ routeUri });
+
+    await resolveVaultClick(
+      { type: "openLink", href: "wikilink://Note", newTab: true },
+      clickRouter,
+    );
+    await resolveVaultClick({ type: "openLink", href: "wikilink://Note" }, clickRouter);
+
+    expect(routeUri).toHaveBeenNthCalledWith(1, "wikilink://Note", { newTab: true });
+    expect(routeUri).toHaveBeenNthCalledWith(2, "wikilink://Note");
+  });
+
   it("forwards messages that are not vault navigation", async () => {
     const routeUri = vi.fn(async () => true);
     const resolution = await resolveVaultClick({ type: "ready" }, router({ routeUri }));

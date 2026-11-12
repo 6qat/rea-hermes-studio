@@ -489,7 +489,7 @@ export class VaultDocumentRouter {
 
   public async routeUri(
     filePathOrLink: string,
-    options?: { selection?: DocumentSelection },
+    options?: { selection?: DocumentSelection; newTab?: boolean },
   ): Promise<boolean> {
     if (!filePathOrLink || typeof filePathOrLink !== "string") return false;
 
@@ -658,18 +658,15 @@ export class VaultDocumentRouter {
       // otherwise use Reading View mode ("preview") for clean rendered markdown.
       const targetMode = selection ? "source" : "preview";
 
-      // If the note is already open in another tab, focus that leaf instead of
-      // loading a second copy into the (possibly blank) active tab.
-      const existingLeaf = this.findLeafForFilePath(abstractFile.path);
-      let leaf: any = existingLeaf;
+      // A new-tab request must not focus a leaf that already shows this note.
+      let leaf: any = options?.newTab ? null : this.findLeafForFilePath(abstractFile.path);
 
       if (!leaf) {
-        // Target the active leaf in the main editing area so the clicked file replaces
-        // the currently active note instead of opening a new tab.
-        leaf =
-          this.host.getActiveLeaf?.() ??
-          this.host.getMostRecentLeaf?.() ??
-          this.host.getLeaf?.(false);
+        leaf = options?.newTab
+          ? this.host.getLeaf?.("tab")
+          : (this.host.getActiveLeaf?.() ??
+            this.host.getMostRecentLeaf?.() ??
+            this.host.getLeaf?.(false));
 
         if (leaf && typeof leaf.openFile === "function") {
           await leaf.openFile(abstractFile, {
@@ -727,7 +724,7 @@ export class VaultDocumentRouter {
       this.host.openLinkText
     ) {
       try {
-        await this.host.openLinkText(cleanTarget || target, "", false, {
+        await this.host.openLinkText(cleanTarget || target, "", Boolean(options?.newTab), {
           state: { mode: "preview" },
         });
         return true;

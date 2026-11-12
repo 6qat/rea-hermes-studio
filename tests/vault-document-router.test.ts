@@ -326,6 +326,29 @@ And an explicit link [[AI/AI|Artificial Intelligence]] and fenced code:
       expect(noteLeaf.view.file?.path).toBe("Meus Documentos.md");
     });
 
+    it("opens a new tab even when the note is already open", async () => {
+      const { router, openedFiles, openLeaves, activeLeaves, hostAdapter } = createTestHarness();
+
+      await router.routeUri("wikilink://Meus%20Documentos");
+      const existing = openLeaves[0];
+      const kinds: unknown[] = [];
+      const original = hostAdapter.getLeaf!;
+      hostAdapter.getLeaf = (kind?: unknown) => {
+        kinds.push(kind);
+        return original(kind);
+      };
+
+      const res = await router.routeUri("Meus Documentos.md", { newTab: true });
+
+      expect(res).toBe(true);
+      expect(kinds).toEqual(["tab"]);
+      expect(openLeaves).toHaveLength(2);
+      expect(existing.view.file?.path).toBe("Meus Documentos.md");
+      expect(openLeaves[1].view.file?.path).toBe("Meus Documentos.md");
+      expect(openedFiles).toHaveLength(2);
+      expect(activeLeaves.at(-1)).toBe(openLeaves[1]);
+    });
+
     it("replaces active note in current leaf without opening a new tab", async () => {
       const { router, openLeaves } = createTestHarness();
 
