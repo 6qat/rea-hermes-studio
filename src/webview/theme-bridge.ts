@@ -192,4 +192,21 @@ button,
   cursor: not-allowed !important;
   pointer-events: none !important;
 }
+
+.yt-embed {
+  position: relative;
+  display: block;
+  width: 100%;
+  max-width: 640px;
+  margin: 0.75rem 0;
+  aspect-ratio: 16 / 9;
+}
+
+.yt-embed iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
 `;

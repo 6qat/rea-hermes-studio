@@ -1,6 +1,7 @@
 import { PromptHistoryBuffer } from "./prompt-history-buffer";
 import { HERMES_WEBVIEW_BASE_CSS, THEME_BRIDGE_CSS } from "./theme-bridge";
 import { createHermesWebviewInstance } from "./webview-runtime.cjs";
+import { youtubeEmbedFromHtml, youtubeEmbedHtml } from "./youtube-embed";
 
 export interface HermesWebviewMountOptions {
   shadowRoot: ShadowRoot;
@@ -99,6 +100,8 @@ export function mountHermesWebview(options: HermesWebviewMountOptions): HermesWe
     appEl,
     extractDroppedFileUris,
     linkifyVaultText: options.linkifyVaultText,
+    youtubeEmbedHtml,
+    youtubeEmbedFromHtml,
     isVaultPathKnown: options.isVaultPathKnown,
     promptHistory,
     onHostMessage(listener: (msg: any) => void) {

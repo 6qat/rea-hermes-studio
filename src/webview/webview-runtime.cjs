@@ -16065,9 +16065,17 @@ var Mg,
         renderer: {
           code: Ag,
           html({ text: e }) {
+            if (typeof __env?.youtubeEmbedFromHtml === `function`) {
+              let embed = __env.youtubeEmbedFromHtml(e);
+              if (typeof embed === `string` && embed.length > 0) return embed;
+            }
             return Og(e);
           },
           image({ href: e, text: t }) {
+            if (typeof e === `string` && typeof __env?.youtubeEmbedHtml === `function`) {
+              let embed = __env.youtubeEmbedHtml(e);
+              if (typeof embed === `string` && embed.length > 0) return embed;
+            }
             let n = t.trim() ? `image: ${t}` : `image`;
             return `<a href="${Og(e)}">${Og(n)}</a>`;
           },
@@ -16097,11 +16105,20 @@ var Mg,
             (e.setAttribute(`class`, `md-path`),
             e.setAttribute(`data-path`, t.path),
             t.line && e.setAttribute(`data-line`, String(t.line)));
+        } else if (e.tagName === `IFRAME`) {
+          let src = e.getAttribute(`src`) ?? ``;
+          if (
+            !/^https:\/\/www\.youtube-nocookie\.com\/embed\/[A-Za-z0-9_-]{11}\?(?:modestbranding=1&rel=0(?:&start=\d+)?)$/.test(
+              src,
+            )
+          ) {
+            e.remove();
+          }
         }
       }),
       (Pg = {
         ALLOWED_TAGS:
-          `p.br.strong.em.del.code.pre.span.div.button.ul.ol.li.blockquote.h1.h2.h3.h4.h5.h6.a.hr.table.thead.tbody.tr.th.td.input`.split(
+          `p.br.strong.em.del.code.pre.span.div.button.ul.ol.li.blockquote.h1.h2.h3.h4.h5.h6.a.hr.table.thead.tbody.tr.th.td.input.iframe`.split(
             `.`,
           ),
         ALLOWED_ATTR: [
@@ -16114,6 +16131,11 @@ var Mg,
           `align`,
           `start`,
           `aria-label`,
+          `src`,
+          `allow`,
+          `allowfullscreen`,
+          `loading`,
+          `referrerpolicy`,
         ],
         ALLOW_DATA_ATTR: !1,
         FORBID_ATTR: [`style`],

@@ -230,4 +230,66 @@ describe("Shadow-DOM scoped Svelte 5 webview mount", () => {
     instance.destroy();
     hostEl.remove();
   });
+
+  it("embeds an Obsidian YouTube image and refuses other iframes", async () => {
+    const hostEl = document.createElement("div");
+    document.body.appendChild(hostEl);
+    const shadowRoot = hostEl.attachShadow({ mode: "open" });
+    const instance = mountHermesWebview({
+      shadowRoot,
+      place: "side",
+      onMessageFromWebview: () => {},
+    });
+
+    instance.postMessageToWebview({
+      type: "init",
+      model: {
+        items: [
+          {
+            id: "yt",
+            kind: "assistant",
+            turn: 1,
+            text: [
+              "![](https://www.youtube.com/watch?v=dQw4w9WgXcQ)",
+              "",
+              "![](https://example.com/photo.png)",
+              "",
+              '<iframe src="https://evil.example/"></iframe>',
+            ].join("\n"),
+          },
+        ],
+        meta: {
+          connection: { state: "ready" },
+          busy: false,
+          turn: 1,
+          queued: [],
+          models: [],
+          model: "anthropic/claude-sonnet-4",
+          modes: [],
+          skills: [],
+          folder: "Main_Vault",
+        },
+      },
+    });
+
+    await new Promise((r) => setTimeout(r, 40));
+
+    const iframe = shadowRoot.querySelector("iframe");
+    expect(iframe).not.toBeNull();
+    expect(iframe!.getAttribute("src")).toBe(
+      "https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ?modestbranding=1&rel=0",
+    );
+    expect(iframe!.closest(".yt-embed")).not.toBeNull();
+
+    const links = [...shadowRoot.querySelectorAll("a")].map((a) => a.getAttribute("data-href"));
+    expect(links).toContain("https://example.com/photo.png");
+    expect(shadowRoot.querySelector('iframe[src*="evil.example"]')).toBeNull();
+    expect(shadowRoot.textContent).toContain("<iframe");
+
+    expect(THEME_BRIDGE_CSS).toContain(".yt-embed");
+    expect(THEME_BRIDGE_CSS).toContain("aspect-ratio: 16 / 9");
+
+    instance.destroy();
+    hostEl.remove();
+  });
 });
