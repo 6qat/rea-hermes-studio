@@ -7,7 +7,11 @@ import {
 import { SimpleEventEmitter, type SimpleUri } from "../host/obsidian-shim";
 import { resolveVaultClick } from "../host/vault-click-port";
 import type HermesStudioPlugin from "../main";
-import { isTerminalClientMessage, type TerminalClientMessage } from "../webview/terminal-panel";
+import {
+  clampTerminalFontSize,
+  isTerminalClientMessage,
+  type TerminalClientMessage,
+} from "../webview/terminal-panel";
 import { type HermesWebviewMounted, mountHermesWebview } from "../webview/webview-mount";
 import { type DiffViewPayload, renderDiffIntoContainer } from "./hermes-diff-view";
 
@@ -105,6 +109,14 @@ export class HermesStudioView extends ItemView {
 
     // Support direct drag-and-drop of Obsidian notes from File Explorer without requiring Shift
     this.setupObsidianDropBridge(this.mounted.rootEl);
+    this.applyTerminalFontSize();
+  }
+
+  applyTerminalFontSize(): void {
+    this.mounted?.postMessageToWebview({
+      type: "terminal:fontSize",
+      size: clampTerminalFontSize(this.plugin.settings.terminalFontSize),
+    });
   }
 
   private setupObsidianDropBridge(rootEl: HTMLElement): void {

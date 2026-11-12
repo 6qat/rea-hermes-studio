@@ -1,10 +1,12 @@
 import { type App, PluginSettingTab, Setting } from "obsidian";
 import { defaultTerminalShell } from "./host/integrated-terminal";
 import type HermesStudioPlugin from "./main";
+import { clampTerminalFontSize } from "./webview/terminal-panel";
 
 export interface HermesPluginSettings {
   path: string;
   terminalShell: string;
+  terminalFontSize: number;
   environment: Record<string, string>;
   autoStart: boolean;
   notifications: "all" | "permissions" | "off";
@@ -20,6 +22,7 @@ export interface HermesPluginSettings {
 export const DEFAULT_HERMES_SETTINGS: HermesPluginSettings = {
   path: "",
   terminalShell: defaultTerminalShell(),
+  terminalFontSize: 13,
   environment: {},
   autoStart: true,
   notifications: "all",
@@ -107,6 +110,21 @@ export class HermesSettingTab extends PluginSettingTab {
           .onChange(async (value) => {
             this.plugin.settings.terminalShell = value.trim() || defaultTerminalShell();
             await this.plugin.saveSettings("terminalShell");
+          }),
+      );
+
+    new Setting(containerEl)
+      .setName("Terminal font size")
+      .setDesc(
+        "Size, in pixels, of the text in the Terminal tab. Default: 13. Values stay between 8 and 32.",
+      )
+      .addText((text) =>
+        text
+          .setPlaceholder("13")
+          .setValue(String(this.plugin.settings.terminalFontSize ?? 13))
+          .onChange(async (value) => {
+            this.plugin.settings.terminalFontSize = clampTerminalFontSize(value);
+            await this.plugin.saveSettings("terminalFontSize");
           }),
       );
 

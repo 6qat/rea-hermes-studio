@@ -8,6 +8,12 @@ export type TerminalClientMessage =
   | { type: "terminal:resize"; cols: number; rows: number }
   | { type: "terminal:restart" };
 
+export function clampTerminalFontSize(value: unknown): number {
+  const num = typeof value === "number" ? value : Number.parseInt(String(value ?? ""), 10);
+  if (!Number.isFinite(num)) return 13;
+  return Math.min(32, Math.max(8, Math.round(num)));
+}
+
 export function isTerminalClientMessage(msg: unknown): msg is TerminalClientMessage {
   if (!msg || typeof msg !== "object") return false;
   const type = (msg as { type?: unknown }).type;
@@ -41,6 +47,7 @@ export function attachTerminalPanel(options: {
   let announced = false;
   let exited = false;
   let termFailed = false;
+  let fontSize = 13;
   const pending: Array<(terminal: Terminal) => void> = [];
 
   const resizeObserver = new ResizeObserver(() => {
@@ -90,15 +97,22 @@ export function attachTerminalPanel(options: {
     });
   }
 
+  function applyFontSize(value: unknown): void {
+    fontSize = clampTerminalFontSize(value);
+    layer.style.fontSize = `${fontSize}px`;
+    if (!term) return;
+    term.options.fontSize = fontSize;
+    refit();
+  }
+
   function ensureTerm(): void {
     if (term || termFailed) return;
     try {
       const style = doc.defaultView?.getComputedStyle(layer);
-      const fontSize = Number.parseFloat(style?.fontSize ?? "");
       const terminal = new Terminal({
         cursorBlink: true,
         fontFamily: style?.fontFamily || "monospace",
-        fontSize: Number.isFinite(fontSize) && fontSize > 0 ? fontSize : 13,
+        fontSize,
         scrollback: 10000,
         theme: {
           background: style?.backgroundColor || "#0b0f19",
@@ -205,11 +219,19 @@ export function attachTerminalPanel(options: {
       }
       return;
     }
+    if (type === "terminal:fontSize") {
+      applyFontSize((msg as { size?: unknown }).size);
+      return;
+    }
     if (type === "terminal:exit") {
-      exited = true;
-      const code = (msg as { code?: unknown }).code;
-      const shown = typeof code === "number" ? String(code) : "?";
-      writeToTerm((terminal) => terminal.write(`\r\n[process exited with code ${shown}]\r\n`));
+      exited = false;
+      announced = false;
+      try {
+        term?.reset();
+      } catch {
+        // The buffer can fail to reset in a headless document. The next open still starts clean.
+      }
+      options.rootEl.querySelector<HTMLElement>("#hs-tab-chat")?.click();
       return;
     }
     if (type === "terminal:error") {

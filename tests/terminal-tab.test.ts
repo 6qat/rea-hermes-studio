@@ -63,21 +63,48 @@ describe("Terminal tab", () => {
     ]);
     const terminal = tabs.at(-1);
     expect(terminal?.textContent).toContain("Terminal");
+    expect(terminal?.querySelector("path")?.getAttribute("d")).toBe("M3 4.5l4 3.5-4 3.5M9 12h4");
+
+    instance.postMessageToWebview({ type: "terminal:fontSize", size: 18 });
 
     terminal?.click();
     await new Promise((resolve) => setTimeout(resolve, 20));
 
     expect(terminal?.getAttribute("aria-selected")).toBe("true");
-    const layer = shadowRoot.querySelector("#hermes-terminal-layer");
+    const layer = shadowRoot.querySelector<HTMLElement>("#hermes-terminal-layer");
     expect(layer?.classList.contains("is-active")).toBe(true);
+    expect(layer?.style.fontSize).toBe("18px");
     expect(shadowRoot.querySelector("#hs-terminal-marker")).not.toBeNull();
     expect(shadowRoot.textContent).not.toContain("Reading Hermes's files");
 
-    shadowRoot.querySelector<HTMLElement>("#hs-tab-chat")?.click();
+    instance.postMessageToWebview({ type: "terminal:fontSize", size: 20 });
+    expect(layer?.style.fontSize).toBe("20px");
+
+    const chat = shadowRoot.querySelector<HTMLElement>("#hs-tab-chat");
+    chat?.click();
     await new Promise((resolve) => setTimeout(resolve, 20));
 
     expect(layer?.classList.contains("is-active")).toBe(false);
-    expect(receivedByHost.some((msg) => msg.type === "terminal:open")).toBe(true);
+    expect(receivedByHost.filter((msg) => msg.type === "terminal:open")).toHaveLength(1);
+
+    terminal?.click();
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(receivedByHost.filter((msg) => msg.type === "terminal:open")).toHaveLength(1);
+
+    instance.postMessageToWebview({ type: "terminal:error", message: "python3 is missing" });
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(terminal?.getAttribute("aria-selected")).toBe("true");
+    expect(layer?.textContent).toContain("python3 is missing");
+
+    instance.postMessageToWebview({ type: "terminal:exit", code: 0 });
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(chat?.getAttribute("aria-selected")).toBe("true");
+    expect(layer?.classList.contains("is-active")).toBe(false);
+
+    terminal?.click();
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(terminal?.getAttribute("aria-selected")).toBe("true");
+    expect(receivedByHost.filter((msg) => msg.type === "terminal:open")).toHaveLength(2);
 
     instance.destroy();
     hostEl.remove();

@@ -17846,6 +17846,9 @@ function gv(e, t) {
         },
         ne = (e) => {
           K(e, zv());
+        },
+        re = (e) => {
+          K(e, Xq());
         };
       (J(i, (e) => {
         t.name === `chat`
@@ -17888,8 +17891,10 @@ function gv(e, t) {
                                               ? e(ee, 18)
                                               : t.name === `refresh`
                                                 ? e(te, 19)
-                                                : t.name === `shield` &&
-                                                  e(ne, 20);
+                                                : t.name === `terminal`
+                                                  ? e(re, 21)
+                                                  : t.name === `shield` &&
+                                                    e(ne, 20);
       }),
         k(r),
         B(() => X(r, 0, Y([`shrink-0`, n()]))),
@@ -17923,6 +17928,7 @@ var _v,
   Lv,
   Rv,
   zv,
+  Xq,
   Bv,
   Vv = o(() => {
     (Vo(),
@@ -17978,6 +17984,7 @@ var _v,
       )),
       (Rv = Ni(`<path d="M13 8a5 5 0 1 1-1.5-3.6M13 2.5v2.8h-2.8"></path>`)),
       (zv = Ni(`<path d="M8 2l5 2v4c0 3-2.2 5-5 6-2.8-1-5-3-5-6V4z"></path>`)),
+      (Xq = Ni(`<path d="M3 4.5l4 3.5-4 3.5M9 12h4"></path>`)),
       (Bv = Ni(
         `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><!></svg>`,
       )));

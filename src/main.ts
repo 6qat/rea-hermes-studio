@@ -794,6 +794,10 @@ export default class HermesStudioPlugin extends Plugin {
     if (changedKey === "statusBarPadding" || !changedKey) {
       this.applyLayoutSpacing();
     }
+    if (changedKey === "terminalFontSize" || !changedKey) {
+      this.activeSideView?.applyTerminalFontSize();
+      this.activeEditorView?.applyTerminalFontSize();
+    }
     this.vscodeShim?._internal.fireConfigChanged(changedKey);
   }
 
