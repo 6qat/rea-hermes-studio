@@ -59,7 +59,7 @@ export function attachTerminalPanel(options: {
   function placeLayer(): void {
     const tablist = options.rootEl.querySelector<HTMLElement>('[role="tablist"]');
     if (!tablist) {
-      layer.style.top = "0px";
+      layer.style.removeProperty("top");
       return;
     }
     const rootRect = options.rootEl.getBoundingClientRect();
